@@ -1,0 +1,8 @@
+[main]
+host = https://translations.lizard.net
+type = PO
+
+[lizardsystem.lizard-ocean]
+file_filter = lizard_ocean/locale/<lang>/LC_MESSAGES/django.po
+source_file = lizard_ocean/locale/en/LC_MESSAGES/django.po
+source_lang = en
