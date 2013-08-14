@@ -5,7 +5,7 @@ from __future__ import print_function
 
 from django.utils.translation import ugettext as _
 # from django.core.urlresolvers import reverse
-# from lizard_map.views import MapView
+from lizard_map.views import MapView
 # from lizard_ui.views import UiView
 
 # from lizard_ocean import models
@@ -17,7 +17,7 @@ from django.utils.translation import ugettext as _
 #     page_title = _('TODO view')
 
 
-# class Todo2View(MapView):
-#     """Simple view with a map."""
-#     template_name = 'lizard_ocean/todo2.html'
-#     page_title = _('TODO 2 view')
+class MainView(MapView):
+    """Main view of the application."""
+    template_name = 'lizard_ocean/main.html'
+    # page_title = _('')

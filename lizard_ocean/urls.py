@@ -15,14 +15,14 @@ admin.autodiscover()
 
 urlpatterns = patterns(
     '',
+    url(r'^$',
+        views.MainView.as_view(),
+        name='ocean_main'),
     url(r'^ui/', include('lizard_ui.urls')),
     # url(r'^map/', include('lizard_map.urls')),
     url(r'^admin/', include(admin.site.urls)),
     # url(r'^something/',
     #     views.some_method,
     #     name="name_it"),
-    # url(r'^something_else/$',
-    #     views.SomeClassBasedView.as_view(),
-    #     name='name_it_too'),
     )
 urlpatterns += debugmode_urlpatterns()
