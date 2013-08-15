@@ -40,3 +40,6 @@ etc/*.logrotate
 
 .DS_Store
 lizard_ocean/local_testsettings.py
+
+# vim 
+*.swp
