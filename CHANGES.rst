@@ -5,7 +5,10 @@ Changelog of lizard-ocean
 0.1 (unreleased)
 ----------------
 
-- Function in raster.py to read dir with rasters and return a dict.
+- Started netcdf file reading including a view for debug purposes.
+
+- Added function in raster.py to read dir with rasters and return a
+  dict.
 
 - Test pngs to raster sample dir.
 
