@@ -5,6 +5,8 @@ Changelog of lizard-ocean
 0.1 (unreleased)
 ----------------
 
+- Function in raster.py to read dir with rasters and return a dict
+- Added test pngs to raster sample dir
 - Added ``OCEAN_RASTER_BASEDIR`` and ``OCEAN_NETCDF_BASEDIR`` settings
   with a local sample dir as default.
 
