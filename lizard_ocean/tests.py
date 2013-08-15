@@ -7,6 +7,7 @@ from django.test import TestCase
 from django.conf import settings
 
 from lizard_ocean import netcdf
+from lizard_ocean import views
 
 
 class ConfTest(TestCase):
@@ -30,3 +31,11 @@ class NetcdfTest(TestCase):
 
     def test_filepaths(self):
         self.assertEquals(len(netcdf.netcdf_filepaths()), 1)
+    
+    
+class RawNetcdfViewTest(TestCase):
+
+    def test_filepaths(self):
+        view = views.RawNetcdfView()
+        self.assertTrue(view.filepaths)
+    
