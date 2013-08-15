@@ -15,10 +15,10 @@ class ConfTest(TestCase):
 
 class RasterTest(TestCase):
 
-    def test_get_rasters(self):
-        from .raster import get_rasters
+    def test_rasters(self):
+        from lizard_ocean.raster import rasters
 
-        rasters = get_rasters()
+        rasters = rasters()
         self.assertTrue('20130806' in rasters)
         self.assertEquals(rasters['20130806'],
                           settings.OCEAN_RASTER_BASEDIR + '/test_20130806.png')
