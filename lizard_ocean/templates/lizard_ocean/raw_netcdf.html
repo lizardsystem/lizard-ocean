@@ -1,0 +1,13 @@
+{% extends "lizard_ui/lizardbase.html" %}
+
+{% block content %}
+  <h1>Netcdf debug overview</h1>
+
+  <h2>Netcdf files</h2>
+  <ul>
+    {% for filepath in view.filepaths %}
+      <li>{{ filepath }}</li>
+    {% endfor %}
+  </ul>
+
+{% endblock content %}
