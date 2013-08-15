@@ -39,3 +39,12 @@ TODO and TO_FIGURE_OUT:
 - Debug data-dump page.
 
 - Django-appconfig integration.
+
+
+Configuration
+-------------
+
+Sample raster and netcdf data are in ``lizard_ocean/samples/netcdf/``
+and ``lizard_ocean/samples/raster/``. Configure actual locations in
+your Django settings with ``OCEAN_RASTER_BASEDIR`` and
+``OCEAN_NETCDF_BASEDIR``.
