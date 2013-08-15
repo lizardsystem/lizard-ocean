@@ -12,6 +12,8 @@ install_requires = [
     'Django',
     'django-extensions',
     'django-nose',
+    'django-appconf',
+    'lizard-map',
     'lizard-ui >= 4.0b5',
     ],
 

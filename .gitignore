@@ -24,6 +24,7 @@ pip-log.txt
 .tox
 nosetests.xml
 htmlcov
+coverage.xml
 
 #Translations
 # *.mo
@@ -38,3 +39,4 @@ etc/*.nginx.conf
 etc/*.logrotate
 
 .DS_Store
+lizard_ocean/local_testsettings.py
