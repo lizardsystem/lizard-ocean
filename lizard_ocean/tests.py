@@ -44,7 +44,20 @@ class NetcdfFileTest(TestCase):
     def test_smoke(self):
         # Turn it on and make sure it at least doesn't belch out smoke.
         self.assertTrue(self.netcdf_file.dataset)
-    
+
+    def test_stations1(self):
+        self.assertEquals(len(self.netcdf_file.stations), 8)
+
+    def test_stations2(self):
+        available_keys = sorted(self.netcdf_file.stations[0].keys())
+        expected_keys = sorted(['x', 'y', 'id', 'name'])
+        self.assertEquals(available_keys, expected_keys)
+
+    def test_stations3(self):
+        first_item = self.netcdf_file.stations[0]
+        self.assertEquals(first_item['x'], 51.5)
+        self.assertEquals(first_item['name'], 'Test_7')
+
     
 class RawNetcdfViewTest(TestCase):
 

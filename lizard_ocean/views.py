@@ -31,3 +31,18 @@ class RawNetcdfView(UiView):
     @property
     def filepaths(self):
         return netcdf.netcdf_filepaths()
+
+    @property
+    def netcdf_files(self):
+        """Return the wrapped netcdf files."""
+        result = []
+        for filename in netcdf.netcdf_filepaths():
+            netcdf_file = netcdf.NetcdfFile(filename)
+            # View-related adjustments/additions.
+            netcdf_file.headings = netcdf_file.metadata_keys
+            netcdf_file.rows = []
+            for station in netcdf_file.stations:
+                row = [station[key] for key in netcdf_file.metadata_keys]
+                netcdf_file.rows.append(row)
+            result.append(netcdf_file)
+        return result

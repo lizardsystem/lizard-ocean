@@ -3,12 +3,34 @@
 {% block content %}
   <div id="textual">
     <h1>Netcdf debug overview</h1>
-    
-    <h2>Netcdf files</h2>
-    <ul>
-      {% for filepath in view.filepaths %}
-        <li>{{ filepath }}</li>
-      {% endfor %}
-    </ul>
+
+    {% for netcdf_file in view.netcdf_files %}
+      <h2>{{ netcdf_file.filename }}</h2>
+      <dl>
+        <dt>Filename</dt>
+        <dd>{{ netcdf_file.filename }}</dd>
+        <dt>Number of stations</dt>
+        <dd>{{ netcdf_file.locations|length }}</dd>
+      </dl>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            {% for heading in netcdf_file.headings %}
+              <th>{{ heading }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in netcdf_file.rows %}
+            <tr>
+              {% for cell in row %}
+                <td>{{ cell }}</td>
+              {% endfor %}                
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endfor %}
+
   </div>
 {% endblock content %}
