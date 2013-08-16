@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from __future__ import print_function
+import os
 
 from django.test import TestCase
 from django.conf import settings
@@ -31,6 +32,18 @@ class NetcdfTest(TestCase):
 
     def test_filepaths(self):
         self.assertEquals(len(netcdf.netcdf_filepaths()), 1)
+    
+    
+class NetcdfFileTest(TestCase):
+
+    def setUp(self):
+        filename = os.path.join(settings.OCEAN_NETCDF_BASEDIR, 
+                                'Phase_One_dummy.nc')
+        self.netcdf_file = netcdf.NetcdfFile(filename)
+
+    def test_smoke(self):
+        # Turn it on and make sure it at least doesn't belch out smoke.
+        self.assertTrue(self.netcdf_file.dataset)
     
     
 class RawNetcdfViewTest(TestCase):
