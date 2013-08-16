@@ -142,4 +142,15 @@
     </fieldset>
 
   </form>
+  
+  {% if user.is_superuser %}
+    <hr />
+    <p>Admin-only debug pages:</p>
+    <ul>
+      <li>
+        <a href="{% url ocean_netcdf %}">Netcdf info</a>
+      </li>
+    </ul>
+  {% endif %}
+
 {% endblock %}
