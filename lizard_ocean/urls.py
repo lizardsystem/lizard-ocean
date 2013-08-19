@@ -8,6 +8,7 @@ from django.conf.urls.defaults import patterns
 from django.conf.urls.defaults import url
 from django.contrib import admin
 from lizard_ui.urls import debugmode_urlpatterns
+from django.contrib.auth.decorators import login_required
 
 from lizard_ocean import views
 
@@ -19,7 +20,7 @@ urlpatterns = patterns(
         views.MainView.as_view(),
         name='ocean_main'),
     url(r'^netcdf/$',
-        views.RawNetcdfView.as_view(),
+        login_required(views.RawNetcdfView.as_view()),
         name='ocean_netcdf'),
     url(r'^ui/', include('lizard_ui.urls')),
     # url(r'^map/', include('lizard_map.urls')),

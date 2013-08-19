@@ -15,6 +15,7 @@ install_requires = [
     'django-appconf',
     'lizard-map',
     'lizard-ui >= 4.0b5',
+    'netCDF4',
     ],
 
 tests_require = [
