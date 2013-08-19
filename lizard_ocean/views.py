@@ -22,6 +22,18 @@ class MainView(MapView):
     template_name = 'lizard_ocean/main.html'
     # page_title = _('')
 
+    @property
+    def workspace(self):
+        """Return workspace, but ensure our own workspace is included."""
+        ws = super(MainView, self).workspace
+        ws.add_workspace_item('Ocean',
+                              'adapter_ocean',
+                              {})
+        # ^^^ Note: add_workspace_item() first looks whether the item is
+        # already available before adding. So it is a good way of ensuring it
+        # is present, without the risk of duplication.
+        return ws
+
 
 class RawNetcdfView(UiView):
     """Raw debug view of the netcdf data."""
