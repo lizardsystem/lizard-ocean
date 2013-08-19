@@ -1,13 +1,18 @@
 # Note: no __unicode__ stuff at the top due to mapnik. Perhaps 2.2
 # works, though.
+import datetime
+import math
 import os
 
 from django.conf import settings
+from django.http import Http404
 from lizard_map import coordinates
 from lizard_map import workspace
+from lizard_map.adapter import FlotGraph
 from lizard_map.models import ICON_ORIGINALS
 from lizard_map.symbol_manager import SymbolManager
 import mapnik
+import pytz
 
 from lizard_ocean import netcdf
 
@@ -28,6 +33,14 @@ class OceanPointAdapter(workspace.WorkspaceItemAdapter):
         self.filenames = [os.path.join(settings.OCEAN_NETCDF_BASEDIR, 
                                        'Phase_One_dummy.nc')]
         # ^^^ dummy
+
+    @property
+    def _stations(self):
+        result = []
+        for filename in self.filenames:
+            netcdf_file = netcdf.NetcdfFile(filename)
+            result += netcdf_file.stations
+        return result
 
     def style(self):
         """Return mapnik point style.
@@ -66,20 +79,18 @@ class OceanPointAdapter(workspace.WorkspaceItemAdapter):
                   (0, 0.00001),
                   (0, -0.00001)]
 
-        for filename in self.filenames:
-            netcdf_file = netcdf.NetcdfFile(filename)
-            for station in netcdf_file.stations:
+        for station in self._stations:
+            layer.datasource.add_point(
+                station['x'], 
+                station['y'], 
+                'Name', 
+                str(station['name']))
+            for offset_x, offset_y in around:
                 layer.datasource.add_point(
-                    station['x'], 
-                    station['y'], 
+                    station['x'] + offset_x, 
+                    station['y'] + offset_y,
                     'Name', 
                     str(station['name']))
-                for offset_x, offset_y in around:
-                    layer.datasource.add_point(
-                        station['x'] + offset_x, 
-                        station['y'] + offset_y,
-                        'Name', 
-                        str(station['name']))
 
         # generate "unique" point style name and append to layer
         style_name = "ocean"
@@ -89,3 +100,139 @@ class OceanPointAdapter(workspace.WorkspaceItemAdapter):
         layers = [layer, ]
         return layers, styles
 
+    def search(self, google_x, google_y, radius=None):
+        """Return list of dict {'distance': <float>, 'timeserie':
+        <timeserie>} of closest points that match x, y, radius.
+
+        """
+        def distance(x1, y1, x2, y2):
+            return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
+        result = []
+        for station in self._stations:
+            x, y = coordinates.wgs84_to_google(
+                station['x'],
+                station['y'])
+            dist = distance(google_x, google_y, x, y)
+            if dist < radius:
+                result.append(
+                    {'distance': dist,
+                     'name': station['name'],
+                     'shortname': station['name'],
+                     'workspace_item': self.workspace_item,
+                     'identifier': {'station_id': station['id']},
+                     'google_coords': (x, y),
+                     'object': None})
+        result.sort(key=lambda item: item['distance'])
+        max_results = 3
+        return result[:max_results]
+
+    def location(self, station_id, layout=None):
+        """Return location dict.
+        """
+        for station in self._stations:
+            if station['id'] == station_id:
+                identifier = {'station_id': station_id}
+                return {
+                    'name': station['name'],
+                    'shortname': station['name'],
+                    'workspace_item': self.workspace_item,
+                    'identifier': identifier,
+                    'google_coords': coordinates.wgs84_to_google(
+                        station['x'], station['y']),
+                    'object': station,
+                }
+
+    def html(self, *args, **kwargs):
+        return super(OceanPointAdapter, self).html_default(*args, **kwargs)
+
+    def flot_graph_data(
+        self,
+        identifiers,
+        start_date,
+        end_date,
+        layout_extra=None,
+        raise_404_if_empty=False
+    ):
+        """Copy/pasted from lizard-fewsjdbc."""
+        return self._render_graph(
+            identifiers,
+            start_date,
+            end_date,
+            layout_extra=layout_extra,
+            raise_404_if_empty=raise_404_if_empty,
+            GraphClass=FlotGraph
+        )
+
+    def _render_graph(
+        self,
+        identifiers,
+        start_date,
+        end_date,
+        layout_extra=None,
+        raise_404_if_empty=False,
+        GraphClass=FlotGraph,
+        **extra_params
+    ):
+        """
+        Visualize timeseries in a graph.
+
+        Legend is always drawn.
+
+        New: this is now a more generalized version of image(), to support
+        FlotGraph.
+
+        """
+        today = datetime.datetime.now()
+        graph = GraphClass(start_date, end_date, today=today,
+                           tz=pytz.timezone(settings.TIME_ZONE),
+                           **extra_params)
+        graph.axes.grid(True)
+        # graph.axes.set_ylabel(unit)
+
+        title = None
+        y_min, y_max = None, None
+
+        is_empty = True
+        for identifier in identifiers:
+            location = self.location(**identifier)
+            # Plot data if available.
+            dates = [today + datetime.timedelta(hours=i-3) for i in range(10)]
+            values = range(10)
+            if values:
+                graph.axes.plot(dates, values,
+                                lw=1,
+                                label=location['object']['name'])
+
+        if is_empty and raise_404_if_empty:
+            raise Http404
+
+        # Originally legend was only turned on if layout.get('legend')
+        # was true. However, as far as I can see there is no way for
+        # that to become set anymore. Since a legend should always be
+        # drawn, we simply put the following:
+        graph.legend()
+
+        # If there is data, don't draw a frame around the legend
+        if graph.axes.legend_ is not None:
+            graph.axes.legend_.draw_frame(False)
+        else:
+            # TODO: If there isn't, draw a message. Give a hint that
+            # using another time period might help.
+            pass
+
+        # Extra layout parameters. From lizard-fewsunblobbed.
+        y_min_manual = y_min is not None
+        y_max_manual = y_max is not None
+        if y_min is None:
+            y_min, _ = graph.axes.get_ylim()
+        if y_max is None:
+            _, y_max = graph.axes.get_ylim()
+
+        if title:
+            graph.suptitle(title)
+
+        graph.set_ylim(y_min, y_max, y_min_manual, y_max_manual)
+
+        graph.add_today()
+        return graph.render()
