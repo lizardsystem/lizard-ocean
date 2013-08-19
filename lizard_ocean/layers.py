@@ -33,6 +33,7 @@ class OceanPointAdapter(workspace.WorkspaceItemAdapter):
         self.filenames = [os.path.join(settings.OCEAN_NETCDF_BASEDIR, 
                                        'Phase_One_dummy.nc')]
         # ^^^ dummy
+        # ^^^ Perhaps one adapter per filename? Easier for station index.
 
     @property
     def _stations(self):
@@ -196,9 +197,15 @@ class OceanPointAdapter(workspace.WorkspaceItemAdapter):
         is_empty = True
         for identifier in identifiers:
             location = self.location(**identifier)
+            station_index = location['object']['station_index']
+            parameter_id = 'H_measured'  # TODO: hardcoded.
             # Plot data if available.
-            dates = [today + datetime.timedelta(hours=i-3) for i in range(10)]
-            values = range(10)
+            netcdf_file = netcdf.NetcdfFile(self.filenames[0])
+            # ^^^ TODO: hardcoded
+            pairs = netcdf_file.time_value_pairs(parameter_id, station_index)
+            
+            dates = [date for date, value in pairs]
+            values = [value for date, value in pairs]
             if values:
                 graph.axes.plot(dates, values,
                                 lw=1,

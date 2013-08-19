@@ -56,5 +56,10 @@ class RawNetcdfView(UiView):
             for station in netcdf_file.stations:
                 row = [station[key] for key in netcdf_file.metadata_keys]
                 netcdf_file.rows.append(row)
+            # Sample values
+            netcdf_file.sample_parameter = netcdf_file.parameters[0]['name']
+            netcdf_file.sample_station_index = 0
+            netcdf_file.sample_values = netcdf_file.values(
+                netcdf_file.parameters[0]['id'], 0)
             result.append(netcdf_file)
         return result

@@ -16,6 +16,7 @@ install_requires = [
     'lizard-map',
     'lizard-ui >= 4.0b5',
     'netCDF4',
+    'pytz',
     ],
 
 tests_require = [

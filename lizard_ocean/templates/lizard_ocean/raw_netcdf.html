@@ -30,7 +30,44 @@
           {% endfor %}
         </tbody>
       </table>
+      
+      <h2>Parameters</h2>
+      <ul>
+        {% for parameter in netcdf_file.parameters %}
+          <li>
+            {{ parameter.name }} 
+            (unit: {{ parameter.unit }}, 
+            id: {{ parameter.id}})
+          </li>
+        {% endfor %}
+      </ul>
+
+      <h2>Timestamps</h2>
+      <dl>
+        <dt>Number of timestamps</dt>
+        <dd>{{ netcdf_file.timestamps|length }}</dd>
+        <dt>First one:</dt>
+        <dd>{{ netcdf_file.timestamps|first }}</dd>
+        <dt>Last one:</dt>
+        <dd>{{ netcdf_file.timestamps|last }}</dd>
+      </dl>
+
+      <h2>Values</h2>
+      <dl>
+        <dt>Sample parameter</dt>
+        <dd>{{ netcdf_file.sample_parameter }}</dd>
+        <dt>Sample station index</dt>
+        <dd>{{ netcdf_file.sample_station_index }}</dd>
+        <dt>Values</dt>
+        <dd>
+          {% for value in netcdf_file.sample_values %}
+            {{ value }}<br />
+          {% endfor %}
+        </dd>
+      </dl>
+
     {% endfor %}
+
 
   </div>
 {% endblock content %}
