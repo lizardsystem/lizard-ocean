@@ -4,9 +4,11 @@ import datetime
 import math
 import os
 
+from django.utils.functional import cached_property
 from django.conf import settings
 from django.http import Http404
 from lizard_map import coordinates
+from lizard_map.exceptions import WorkspaceItemError
 from lizard_map import workspace
 from lizard_map.adapter import FlotGraph
 from lizard_map.models import ICON_ORIGINALS
@@ -27,21 +29,19 @@ class OceanPointAdapter(workspace.WorkspaceItemAdapter):
 
     def __init__(self, *args, **kwargs):
         super(OceanPointAdapter, self).__init__(*args, **kwargs)
-        # self.filenames = self.layer_arguments['filenames']  
-        # TODO: switch for an ID or so!!! Probably means DB objects.
-        # Filename: filename without the full path, so adjust it.
-        self.filenames = [os.path.join(settings.OCEAN_NETCDF_BASEDIR, 
-                                       'Phase_One_dummy.nc')]
-        # ^^^ dummy
-        # ^^^ Perhaps one adapter per filename? Easier for station index.
+        if not 'filename' in self.layer_arguments:
+            raise WorkspaceItemError("Key 'filename' not found")
+        self.filename = os.path.join(settings.OCEAN_NETCDF_BASEDIR, 
+                                     self.layer_arguments['filename'])
+        self.parameter_id = self.layer_arguments['parameter_id']
+
+    @cached_property
+    def netcdf_file(self):
+        return netcdf.NetcdfFile(self.filename)
 
     @property
     def _stations(self):
-        result = []
-        for filename in self.filenames:
-            netcdf_file = netcdf.NetcdfFile(filename)
-            result += netcdf_file.stations
-        return result
+        return self.netcdf_file.stations
 
     def style(self):
         """Return mapnik point style.
@@ -64,6 +64,18 @@ class OceanPointAdapter(workspace.WorkspaceItemAdapter):
         point_style = mapnik.Style()
         point_style.rules.append(layout_rule)
         return point_style
+
+    def symbol_url(self, identifier=None, start_date=None, end_date=None,
+                   icon_style=None):
+        """Return symbol for identifier."""
+        sm = SymbolManager(
+            ICON_ORIGINALS, 
+            os.path.join(settings.MEDIA_ROOT, 'generated_icons'))
+        if icon_style is None:
+            icon_style = ICON_STYLE
+        output_filename = sm.get_symbol_transformed(icon_style['icon'],
+                                                    **icon_style)
+        return settings.MEDIA_URL + 'generated_icons/' + output_filename
 
     def layer(self, layer_ids=None, webcolor=None, request=None):
         """Return layer and styles that render points.
@@ -198,11 +210,9 @@ class OceanPointAdapter(workspace.WorkspaceItemAdapter):
         for identifier in identifiers:
             location = self.location(**identifier)
             station_index = location['object']['station_index']
-            parameter_id = 'H_measured'  # TODO: hardcoded.
             # Plot data if available.
-            netcdf_file = netcdf.NetcdfFile(self.filenames[0])
-            # ^^^ TODO: hardcoded
-            pairs = netcdf_file.time_value_pairs(parameter_id, station_index)
+            pairs = self.netcdf_file.time_value_pairs(self.parameter_id, 
+                                                      station_index)
             
             dates = [date for date, value in pairs]
             values = [value for date, value in pairs]

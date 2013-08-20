@@ -3,18 +3,21 @@
 from __future__ import unicode_literals
 from __future__ import print_function
 import datetime
+import json
 import os
 
 import pytz
 from netCDF4 import Dataset
 from django.conf import settings
 from django.utils.functional import cached_property
+from lizard_map.lizard_widgets import WorkspaceAcceptable
 
 
 def netcdf_filepaths():
     files = [f for f in os.listdir(settings.OCEAN_NETCDF_BASEDIR)
              if f.endswith('.nc')]
-    return [os.path.join(settings.OCEAN_NETCDF_BASEDIR, f) for f in files]
+    return sorted([os.path.join(settings.OCEAN_NETCDF_BASEDIR, f) 
+                   for f in files])
     
 
 class NetcdfFile(object):
@@ -60,6 +63,17 @@ class NetcdfFile(object):
             unit = variable.units
             result.append(dict(id=id, name=name, unit=unit))
         return result
+
+    @cached_property
+    def workspace_acceptables(self):
+        """Return workspace acceptables for the user interface."""
+        for parameter in self.parameters:
+            adapter_layer_json = {'filename': os.path.basename(self.filename),
+                                  'parameter_id': parameter['id']}
+            yield WorkspaceAcceptable(
+                name=parameter['name'],
+                adapter_name='adapter_ocean',
+                adapter_layer_json=json.dumps(adapter_layer_json))
 
     @cached_property
     def timestamps(self):
