@@ -76,6 +76,10 @@ class NetcdfFileTest(TestCase):
         parameter = self.netcdf_file.parameters[0]
         self.assertEquals(parameter['unit'], 'm')
 
+    def test_workspace_acceptables(self):
+        acceptables = self.netcdf_file.workspace_acceptables
+        self.assertEquals(acceptables[0].adapter_name, 'adapter_ocean')
+
     
 class RawNetcdfViewTest(TestCase):
 
