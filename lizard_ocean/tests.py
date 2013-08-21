@@ -68,6 +68,14 @@ class NetcdfFileTest(TestCase):
         self.assertEquals(first_item['x'], 51.5)
         self.assertEquals(first_item['name'], 'Test_7')
 
+    def test_parameters1(self):
+        parameters = self.netcdf_file.parameters
+        self.assertEquals(len(parameters), 1)
+
+    def test_parameters2(self):
+        parameter = self.netcdf_file.parameters[0]
+        self.assertEquals(parameter['unit'], 'm')
+
     
 class RawNetcdfViewTest(TestCase):
 
