@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from __future__ import print_function
+import datetime
 import os
 
 from django.test import TestCase
@@ -32,6 +33,15 @@ class NetcdfTest(TestCase):
 
     def test_filepaths(self):
         self.assertEquals(len(netcdf.netcdf_filepaths()), 1)
+
+    def test_minutes1970_to_datetime1(self):
+        self.assertEquals(netcdf.BASE_1970_TIME, 
+                          netcdf.minutes1970_to_datetime(0))
+
+    def test_minutes1970_to_datetime2(self):
+        expected = netcdf.BASE_1970_TIME + datetime.timedelta(hours=1)
+        self.assertEquals(expected, 
+                          netcdf.minutes1970_to_datetime(60))
     
     
 class NetcdfFileTest(TestCase):
