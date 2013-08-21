@@ -84,6 +84,13 @@ class NetcdfFileTest(TestCase):
         timestamps = self.netcdf_file.timestamps
         self.assertEquals(type(timestamps[0]), datetime.datetime)
 
+    def test_values(self):
+        parameter_id = self.netcdf_file.parameters[0]['id']
+        station_index = 7
+        self.assertEquals(
+            len(self.netcdf_file.values(parameter_id, station_index)),
+            len(self.netcdf_file.timestamps))
+
     
 class RawNetcdfViewTest(TestCase):
 
