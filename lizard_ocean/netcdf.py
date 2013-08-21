@@ -18,7 +18,19 @@ def netcdf_filepaths():
              if f.endswith('.nc')]
     return sorted([os.path.join(settings.OCEAN_NETCDF_BASEDIR, f) 
                    for f in files])
-    
+
+
+BASE_1970_TIME = datetime.datetime(year=1970,
+                                   month=1,
+                                   day=1,
+                                   tzinfo=pytz.utc)
+
+
+def minutes1970_to_datetime(minutes):
+    return BASE_1970_TIME + datetime.timedelta(minutes=minutes)    
+
+
+
 
 class NetcdfFile(object):
     """Wrapper around a netcdf file, used to extract information."""
@@ -82,13 +94,9 @@ class NetcdfFile(object):
         The values are in 'minutes since 1970-01-01 00:00:00.0 +0000'.
         """
         minutes_after_1970 = self.dataset.variables['time'][:]
-        base_time = datetime.datetime(year=1970,
-                                      month=1,
-                                      day=1,
-                                      tzinfo=pytz.utc)
         # ^^^ Note: they're proper timezone aware datetimes!
-        datetimes = [base_time + datetime.timedelta(minutes=minutes)
-                     for minutes in minutes_after_1970]
+        datetimes = [minutes1970_to_datetime(minute)
+                     for minute in minutes_after_1970]
         return datetimes
 
     def values(self, parameter_id, station_index):
