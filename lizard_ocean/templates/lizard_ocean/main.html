@@ -9,74 +9,39 @@
     <br />
   {% endfor %}
 
+  <h2>Raster view</h2>
+  <p>
+    TODO: figure out better name.
+  </p>
+  {# Arjen: probably handiest to react on a class on those links below #}
+  {# from javascript and open a popup then. #}
 
-  <form method="get"
-        class="form-vertical"
-        autocomplete="off"
-        id="ocean-form"
-        action=".">
-    {# Temp note for Reinout: look at lizard-wms' filterpage for example code #}
-
-    <h2>
-      <label class="checkbox">
-        <input type="checkbox"
-               name="Raster"
-               value="Raster"
-               checked
-               />
-        Raster
-      </label>
-    </h2>
-
-    <fieldset>
-      <label class="radio">
-        <input type="radio"
-               name="selected_raster"
-               value="Param 1"
-               />
-        Param1
-      </label>
-      <label class="radio">
-        <input type="radio"
-               name="selected_raster"
-               value="Param 2"
-               checked
-               />
-        Param2
-      </label>
-      <label class="radio">
-        <input type="radio"
-               name="selected_raster"
-               value="Param 3"
-               />
-        Param3
-      </label>
-    </fieldset>
-
-    <h2>
-      Zoomlevel
-    </h2>
-
-    <fieldset>
-      <label class="radio">
-        <input type="radio"
-               name="selected_zoomlevel"
-               value="Param 1"
-               checked
-               />
-        Abu Dhabi
-      </label>
-      <label class="radio">
-        <input type="radio"
-               name="selected_zoomlevel"
-               value="Param 3"
-               />
-        Region
-      </label>
-    </fieldset>
-
-  </form>
+  <h3>Area: Abu Dhabi</h3>
+  <ul>
+    <li>
+      <a href="#" data-raster-url="dummy.png">Raster 1</a>
+    </li>
+    <li>
+      <a href="#">Raster 2</a>
+    </li>
+    <li>
+      <a href="#">Raster 3</a>
+    </li>
+  </ul>
   
+  <h3>Area: entire region</h3>
+  <ul>
+    <li>
+      <a href="#">Raster 1</a>
+    </li>
+    <li>
+      <a href="#">Raster 2</a>
+    </li>
+    <li>
+      <a href="#">Raster 3</a>
+    </li>
+  </ul>
+
   {% if user.is_superuser %}
     <hr />
     <p>Admin-only debug pages:</p>
