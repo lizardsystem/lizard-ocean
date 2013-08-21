@@ -80,6 +80,10 @@ class NetcdfFileTest(TestCase):
         acceptables = self.netcdf_file.workspace_acceptables
         self.assertEquals(acceptables[0].adapter_name, 'adapter_ocean')
 
+    def test_workspace_timestamps(self):
+        timestamps = self.netcdf_file.timestamps
+        self.assertEquals(type(timestamps[0]), datetime.datetime)
+
     
 class RawNetcdfViewTest(TestCase):
 
