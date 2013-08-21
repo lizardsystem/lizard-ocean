@@ -91,6 +91,26 @@ class NetcdfFileTest(TestCase):
             len(self.netcdf_file.values(parameter_id, station_index)),
             len(self.netcdf_file.timestamps))
 
+    def test_time_value_pairs1(self):
+        parameter_id = self.netcdf_file.parameters[0]['id']
+        station_index = 7
+        time = self.netcdf_file.timestamps[-1]
+        value = float(self.netcdf_file.values(parameter_id, station_index)[-1])
+        self.assertEquals(
+            self.netcdf_file.time_value_pairs(parameter_id, station_index)[-1],
+            (time, value))
+
+    def test_time_value_pairs2(self):
+        parameter_id = self.netcdf_file.parameters[0]['id']
+        station_index = 7
+        time = self.netcdf_file.timestamps[0]
+        value = float(self.netcdf_file.values(parameter_id, station_index)[0])
+        # Value is NaN, so the first time/value pair returned
+        # shouldn't be the first time and first value!
+        self.assertNotEquals(
+            self.netcdf_file.time_value_pairs(parameter_id, station_index)[0],
+            (time, value))
+                      
     
 class RawNetcdfViewTest(TestCase):
 
