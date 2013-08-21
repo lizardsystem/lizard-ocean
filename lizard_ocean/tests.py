@@ -50,7 +50,7 @@ class NetcdfFileTest(TestCase):
 
     def test_stations2(self):
         available_keys = sorted(self.netcdf_file.stations[0].keys())
-        expected_keys = sorted(['x', 'y', 'id', 'name'])
+        expected_keys = sorted(['x', 'y', 'station_index', 'id', 'name'])
         self.assertEquals(available_keys, expected_keys)
 
     def test_stations3(self):
