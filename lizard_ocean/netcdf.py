@@ -107,4 +107,3 @@ class NetcdfFile(object):
     def time_value_pairs(self, parameter_id, station_index):
         pairs = zip(self.timestamps, self.values(parameter_id, station_index))
         return [(timestamp, float(value)) for timestamp, value in pairs if value]
-        

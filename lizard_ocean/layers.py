@@ -213,7 +213,8 @@ class OceanPointAdapter(workspace.WorkspaceItemAdapter):
             # Plot data if available.
             pairs = self.netcdf_file.time_value_pairs(self.parameter_id, 
                                                       station_index)
-            
+            pairs = [(date, value) for date, value in pairs
+                     if start_date < date < end_date]
             dates = [date for date, value in pairs]
             values = [value for date, value in pairs]
             if values:
