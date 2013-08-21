@@ -118,3 +118,14 @@ class RawNetcdfViewTest(TestCase):
         view = views.RawNetcdfView()
         self.assertTrue(view.filepaths)
     
+    def test_netcdf_files(self):
+        # More of a smoke test.
+        view = views.RawNetcdfView()
+        self.assertEquals(len(view.netcdf_files), 1)
+
+
+class MainViewTest(TestCase):
+
+    def test_point_files(self):
+        view = views.MainView()
+        self.assertEquals(len(view.point_files()), 1)
