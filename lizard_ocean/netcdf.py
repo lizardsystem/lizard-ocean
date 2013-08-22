@@ -30,8 +30,6 @@ def minutes1970_to_datetime(minutes):
     return BASE_1970_TIME + datetime.timedelta(minutes=minutes)    
 
 
-
-
 class NetcdfFile(object):
     """Wrapper around a netcdf file, used to extract information."""
 
@@ -79,13 +77,15 @@ class NetcdfFile(object):
     @cached_property
     def workspace_acceptables(self):
         """Return workspace acceptables for the user interface."""
+        result = []
         for parameter in self.parameters:
             adapter_layer_json = {'filename': os.path.basename(self.filename),
                                   'parameter_id': parameter['id']}
-            yield WorkspaceAcceptable(
+            result.append(WorkspaceAcceptable(
                 name=parameter['name'],
                 adapter_name='adapter_ocean',
-                adapter_layer_json=json.dumps(adapter_layer_json))
+                adapter_layer_json=json.dumps(adapter_layer_json)))
+        return result
 
     @cached_property
     def timestamps(self):
@@ -105,5 +105,12 @@ class NetcdfFile(object):
         return self.dataset.variables[parameter_id][slice(None), station_index]
 
     def time_value_pairs(self, parameter_id, station_index):
+        """Return pairs of time/value. 
+
+        Value should be a float instead of some numpy thingy.
+        Timestamps are already OK.
+
+        Filter out time/value pairs if the value is NotANumber.
+        """
         pairs = zip(self.timestamps, self.values(parameter_id, station_index))
         return [(timestamp, float(value)) for timestamp, value in pairs if value]
