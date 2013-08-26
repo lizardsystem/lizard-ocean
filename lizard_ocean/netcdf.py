@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 from __future__ import print_function
 import datetime
 import json
+import logging
 import os
 
 import pytz
@@ -13,17 +14,19 @@ from django.utils.functional import cached_property
 from lizard_map.lizard_widgets import WorkspaceAcceptable
 
 
+BASE_1970_TIME = datetime.datetime(year=1970,
+                                   month=1,
+                                   day=1,
+                                   tzinfo=pytz.utc)
+
+logger = logging.getLogger(__name__)
+
+
 def netcdf_filepaths():
     files = [f for f in os.listdir(settings.OCEAN_NETCDF_BASEDIR)
              if f.endswith('.nc')]
     return sorted([os.path.join(settings.OCEAN_NETCDF_BASEDIR, f) 
                    for f in files])
-
-
-BASE_1970_TIME = datetime.datetime(year=1970,
-                                   month=1,
-                                   day=1,
-                                   tzinfo=pytz.utc)
 
 
 def minutes1970_to_datetime(minutes):
@@ -65,12 +68,18 @@ class NetcdfFile(object):
         """
         result = []
         known_variables = ['x', 'y', 'time', 'lat', 'lon',
-                           'station_id', 'station_names']
+                           'station_id', 'station_names', 'crs']
         for id, variable in self.dataset.variables.items():
             if id in known_variables:
                 continue
-            name = variable.long_name
-            unit = variable.units
+            try:
+                name = variable.long_name
+                unit = variable.units
+            except AttributeError:
+                msg = "Variable '{}' in {} misses 'long_name' or 'units'"
+                msg = msg.format(id, self.filename)
+                logger.exception(msg)
+                continue  # Omit this parameter.
             result.append(dict(id=id, name=name, unit=unit))
         return result
 
