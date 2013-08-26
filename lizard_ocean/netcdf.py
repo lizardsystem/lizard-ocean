@@ -9,15 +9,11 @@ import os
 
 import pytz
 from netCDF4 import Dataset
+from netCDF4 import num2date
 from django.conf import settings
 from django.utils.functional import cached_property
 from lizard_map.lizard_widgets import WorkspaceAcceptable
 
-
-BASE_1970_TIME = datetime.datetime(year=1970,
-                                   month=1,
-                                   day=1,
-                                   tzinfo=pytz.utc)
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +23,6 @@ def netcdf_filepaths():
              if f.endswith('.nc')]
     return sorted([os.path.join(settings.OCEAN_NETCDF_BASEDIR, f) 
                    for f in files])
-
-
-def minutes1970_to_datetime(minutes):
-    return BASE_1970_TIME + datetime.timedelta(minutes=minutes)    
 
 
 class NetcdfFile(object):
@@ -102,11 +94,9 @@ class NetcdfFile(object):
 
         The values are in 'minutes since 1970-01-01 00:00:00.0 +0000'.
         """
-        minutes_after_1970 = self.dataset.variables['time'][:]
-        # ^^^ Note: they're proper timezone aware datetimes!
-        datetimes = [minutes1970_to_datetime(minute)
-                     for minute in minutes_after_1970]
-        return datetimes
+
+        return num2date(self.dataset.variables['time'][:],
+                        'minutes since 1970-01-01 00:00:00.0 +0000')
 
     def values(self, parameter_id, station_index):
         """Return all values for the parameter."""
