@@ -24,7 +24,7 @@ ICON_STYLE = {'icon': 'buoy.png',  # Buoy.png is available in lizard-map.
               'color': (1, 1, 0, 0)}
 
 
-def wrap_mapnik_path(path):
+def get_pointsymbolizer_args(path, width=16, height=16):
     '''
     Wrapper to support both mapnik 0.7 and mapnik 2.x.
 
@@ -32,8 +32,8 @@ def wrap_mapnik_path(path):
     needs the file path wrapped in a PathExpression.
     '''
     if hasattr(mapnik, 'PathExpression'):
-        return mapnik.PathExpression(path)
-    return path
+        return (mapnik.PathExpression(path),)
+    return (path, width, height)
 
 
 class OceanPointAdapter(workspace.WorkspaceItemAdapter):
@@ -68,7 +68,7 @@ class OceanPointAdapter(workspace.WorkspaceItemAdapter):
         output_filename_abs = os.path.join(
             settings.MEDIA_ROOT, 'generated_icons', output_filename)
         # use filename in mapnik pointsymbolizer
-        point_looks = mapnik.PointSymbolizer(wrap_mapnik_path(output_filename_abs))
+        point_looks = mapnik.PointSymbolizer(*get_pointsymbolizer_args(output_filename_abs))
         point_looks.allow_overlap = True
         layout_rule = mapnik.Rule()
         layout_rule.symbols.append(point_looks)
