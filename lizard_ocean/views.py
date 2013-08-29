@@ -6,7 +6,9 @@ import os
 
 from django.utils.translation import ugettext as _
 # from django.core.urlresolvers import reverse
+from django.utils import simplejson as json
 from lizard_map.views import MapView
+from lizard_map.lizard_widgets import WorkspaceAcceptable
 from lizard_ui.views import UiView
 
 from lizard_ocean import netcdf
@@ -45,6 +47,30 @@ class MainView(MapView):
             result.append({
                 'name': name,
                 'workspace_acceptables': netcdf_file.workspace_acceptables})
+        return result
+
+    def raster_files(self):
+        """Return workspace acceptables, ordered per png file."""
+        result = []
+        result.append(
+            {
+                'name': 'Rasters',
+                'workspace_acceptables': [
+                    WorkspaceAcceptable(
+                        name='Naam directory',
+                        adapter_name='adapter_ocean_raster',
+                        adapter_layer_json=json.dumps(
+                            {
+                                'custom_handler_data': {
+                                    'filenames': ['test_20130805.png', 'test_20130806.png', 'test_20130807.png', 'test_20130808.png', 'test_20130809.png', 'test_20130810.png', 'test_20130811.png']
+                                },
+                                'needs_custom_handler': True
+                            }
+                        )
+                    )
+                ]
+            }
+        )
         return result
 
 

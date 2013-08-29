@@ -1,0 +1,53 @@
+#current-frame-index-label {
+    width: 5em;
+}
+
+#progress-bar {
+    margin-top: 10px;
+    margin-bottom: 0;
+    height: 18px !important;
+    width: 100px;
+    margin-left: 18px;
+    margin-right: 18px;
+}
+
+#frame-slider {
+    height: 0.8em !important;
+    margin-top: 14px;
+    width: 100px;
+    margin-left: 18px;
+    margin-right: 18px;
+}
+
+#start-stop-button {
+    margin-top: -4px;
+}
+
+/* fix jquery ui slider */
+.ui-slider .ui-slider-handle {
+    background-color: #49AFCD;
+    background-image: linear-gradient(to bottom, #5BC0DE, #2F96B4);
+    background-repeat: repeat-x;
+    border-color: rgba(0, 0, 0, 0.1) rgba(0, 0, 0, 0.1) rgba(0, 0, 0, 0.25);
+    color: #FFFFFF;
+    text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.25);
+    z-index: auto;
+}
+
+.olControlOverviewMapElement {
+    padding: 2px 18px 2px 2px;
+}
+
+.olControlMousePosition {
+    left: 3px;
+    right: auto;
+}
+
+.olTileImage {
+    image-rendering:optimizeSpeed;              /* Legal fallback                 */
+    image-rendering:-moz-crisp-edges;           /* Firefox                        */
+    image-rendering:-o-crisp-edges;             /* Opera                          */
+    image-rendering:-webkit-optimize-contrast;  /* Chrome (and eventually Safari) */
+    image-rendering:crisp-edges;                /* CSS3 Proposed                  */
+    -ms-interpolation-mode:bicubic;             /* IE8+                           */
+}

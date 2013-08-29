@@ -57,7 +57,7 @@ class OceanPointAdapter(workspace.WorkspaceItemAdapter):
             settings.MEDIA_ROOT, 'generated_icons', output_filename)
         # use filename in mapnik pointsymbolizer
         point_looks = mapnik.PointSymbolizer(
-            output_filename_abs, 'png', 16, 16)
+            mapnik.PathExpression(output_filename_abs))
         point_looks.allow_overlap = True
         layout_rule = mapnik.Rule()
         layout_rule.symbols.append(point_looks)
@@ -254,3 +254,100 @@ class OceanPointAdapter(workspace.WorkspaceItemAdapter):
 
         graph.add_today()
         return graph.render()
+
+
+class OceanRasterAdapter(workspace.WorkspaceItemAdapter):
+    """Registered as adapter_ocean_raster"""
+
+    def __init__(self, *args, **kwargs):
+        super(OceanRasterAdapter, self).__init__(*args, **kwargs)
+        if not 'filename' in self.layer_arguments:
+            filename = None
+        else:
+            filename = self.layer_arguments['filename']
+
+        self.basedir = settings.OCEAN_RASTER_BASEDIR
+        self.filename = filename
+
+    def search(self, google_x, google_y, radius=None):
+        return []
+
+    def layer(self, layer_ids=None, request=None):
+        filename = request.GET.get('FILENAME')
+        if not filename:
+            filename = self.filename
+
+        layers = []
+        styles = {}
+
+        STYLE_NAME = b'ocean_raster_style'
+
+        # Create a default style
+        s = mapnik.Style()
+        r = mapnik.Rule()
+        rs = mapnik.RasterSymbolizer()
+        r.symbols.append(rs)
+        s.rules.append(r)
+        styles[STYLE_NAME] = s
+
+        # Create a raster layer
+        raster = mapnik.Gdal(base=str(self.basedir), file=str(filename), shared=True)
+        layer = mapnik.Layer(b'ocean_raster_layer', coordinates.WGS84)
+        layer.datasource = raster
+        layer.styles.append(STYLE_NAME)
+        layers.append(layer)
+
+        return layers, styles
+
+    def location(self, identifier, region_name, layout=None):
+        return None
+
+    def image(self, identifiers=None, start_date=None, end_date=None,
+              width=None, height=None, layout_extra=None):
+        return None
+
+    def flot_graph_data(
+        self, identifiers, start_date, end_date, layout_extra=None,
+        raise_404_if_empty=False
+    ):
+        return None
+
+    def values(self, identifier, start_date, end_date):
+        return None
+
+    def html(self, identifiers=None, layout_options=None):
+        return None
+
+    def legend(self, updates=None):
+        return None
+
+
+def apply_world_file(basedir, filename, layer):
+    '''
+    Find a matching worldfile for given file. If found, update the Mapnik layer
+    with the coordinates in the worldfile.
+
+    0.000085830078125  (size of pixel in x direction)                            =(east-west)/image width
+    0.000000000000     (rotation term for row)
+    0.000000000000     (rotation term for column)
+    -0.00006612890625  (size of pixel in y direction)                            =-(north-south)/image height
+    -106.54541         (x coordinate of centre of upper left pixel in map units) =west
+    39.622615          (y coordinate of centre of upper left pixel in map units) =north
+    '''
+
+    filename_noext, ext = os.path.splitext(filename)
+    if ext:
+        ext_map = {
+            '.png': '.pngw',
+            '.tiff': '.tfw',
+        }
+        ext_worldfile = ext_map.get(ext)
+        if ext_worldfile:
+            filename_worldfile = '{}{}'.format(filename_noext, ext_worldfile)
+            path_worldfile = os.path.join(basedir, filename_worldfile)
+            if os.path.isfile(path_worldfile):
+                with open(path_worldfile, 'r') as fd:
+                    lines = [line.strip() for line in fd]
+                if len(lines) == 6:
+                    print lines
+                    size_x, rot_row, rot_col, size_y, x, y = lines

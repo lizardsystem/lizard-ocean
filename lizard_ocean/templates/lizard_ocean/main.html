@@ -1,5 +1,38 @@
 {% extends "lizard_map/wms.html" %}
 
+{% block css %}
+  {{ block.super }}
+  <link rel="stylesheet"
+        href="{{ STATIC_URL }}lizard_ocean/lizard_ocean.css"
+        type="text/css"
+        media="screen, projection" />
+{% endblock css %}
+
+{% block map-javascript %}
+  {{ block.super }}
+  <script src="{{ STATIC_URL  }}lizard_ocean/lizard_ocean.js"></script>
+{% endblock map-javascript %}
+
+{% block breadcrumbs %}
+  <ul class="nav">
+    <li>
+      <button id="start-stop-button" class="btn btn-info"><i class="icon-play"></i></button>
+    </li>
+    <li>
+      <div id="frame-slider"></div>
+    </li>
+    <li>
+      <div id="current-frame-index-label">&nbsp;</div>
+    </li>
+    <li>
+      <div id="progress-bar" class="progress progress-striped active">
+        <div class="bar" style="width: 0%;"></div>
+      </div>
+    </li>
+  </ul>
+  {{ block.super }}
+{% endblock breadcrumbs %}
+
 {% block sidebar %}
   {% for point_file in view.point_files %}
     <h2>{{ point_file.name }}</h2>
@@ -9,38 +42,13 @@
     <br />
   {% endfor %}
 
-  <h2>Raster view</h2>
-  <p>
-    TODO: figure out better name.
-  </p>
-  {# Arjen: probably handiest to react on a class on those links below #}
-  {# from javascript and open a popup then. #}
-
-  <h3>Area: Abu Dhabi</h3>
-  <ul>
-    <li>
-      <a href="#" data-raster-url="dummy.png">Raster 1</a>
-    </li>
-    <li>
-      <a href="#">Raster 2</a>
-    </li>
-    <li>
-      <a href="#">Raster 3</a>
-    </li>
-  </ul>
-  
-  <h3>Area: entire region</h3>
-  <ul>
-    <li>
-      <a href="#">Raster 1</a>
-    </li>
-    <li>
-      <a href="#">Raster 2</a>
-    </li>
-    <li>
-      <a href="#">Raster 3</a>
-    </li>
-  </ul>
+  {% for point_file in view.raster_files %}
+    <h2>{{ point_file.name }}</h2>
+    {% for workspace_acceptable in point_file.workspace_acceptables %}
+      {{ workspace_acceptable.to_html }}
+    {% endfor %}
+    <br />
+  {% endfor %}
 
   {% if user.is_superuser %}
     <hr />
