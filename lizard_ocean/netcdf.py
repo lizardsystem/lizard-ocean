@@ -4,13 +4,18 @@ from __future__ import unicode_literals
 from __future__ import print_function
 import datetime
 import json
+import logging
 import os
 
 import pytz
 from netCDF4 import Dataset
+from netCDF4 import num2date
 from django.conf import settings
 from django.utils.functional import cached_property
 from lizard_map.lizard_widgets import WorkspaceAcceptable
+
+
+logger = logging.getLogger(__name__)
 
 
 def netcdf_filepaths():
@@ -18,16 +23,6 @@ def netcdf_filepaths():
              if f.endswith('.nc')]
     return sorted([os.path.join(settings.OCEAN_NETCDF_BASEDIR, f) 
                    for f in files])
-
-
-BASE_1970_TIME = datetime.datetime(year=1970,
-                                   month=1,
-                                   day=1,
-                                   tzinfo=pytz.utc)
-
-
-def minutes1970_to_datetime(minutes):
-    return BASE_1970_TIME + datetime.timedelta(minutes=minutes)    
 
 
 class NetcdfFile(object):
@@ -65,12 +60,18 @@ class NetcdfFile(object):
         """
         result = []
         known_variables = ['x', 'y', 'time', 'lat', 'lon',
-                           'station_id', 'station_names']
+                           'station_id', 'station_names', 'crs']
         for id, variable in self.dataset.variables.items():
             if id in known_variables:
                 continue
-            name = variable.long_name
-            unit = variable.units
+            try:
+                name = variable.long_name
+                unit = variable.units
+            except AttributeError:
+                msg = "Variable '{}' in {} misses 'long_name' or 'units'"
+                msg = msg.format(id, self.filename)
+                logger.exception(msg)
+                continue  # Omit this parameter.
             result.append(dict(id=id, name=name, unit=unit))
         return result
 
@@ -93,10 +94,12 @@ class NetcdfFile(object):
 
         The values are in 'minutes since 1970-01-01 00:00:00.0 +0000'.
         """
-        minutes_after_1970 = self.dataset.variables['time'][:]
-        # ^^^ Note: they're proper timezone aware datetimes!
-        datetimes = [minutes1970_to_datetime(minute)
-                     for minute in minutes_after_1970]
+        datetimes = num2date(self.dataset.variables['time'][:],
+                        self.dataset.variables['time'].units)
+        # NetCDF4 deliberately returns naive datetimes.
+        # We have to manually attach UTC tzinfo objects to them.
+        # ref: http://netcdf4-python.googlecode.com/svn/trunk/docs/netCDF4-module.html#num2date
+        datetimes = [dt.replace(tzinfo=pytz.utc) for dt in datetimes]
         return datetimes
 
     def values(self, parameter_id, station_index):
