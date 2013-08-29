@@ -24,7 +24,7 @@ ICON_STYLE = {'icon': 'buoy.png',  # Buoy.png is available in lizard-map.
               'color': (1, 1, 0, 0)}
 
 
-def get_pointsymbolizer_args(path, width=16, height=16):
+def get_pointsymbolizer_args(path, format='png', width=16, height=16):
     '''
     Wrapper to support both mapnik 0.7 and mapnik 2.x.
 
@@ -33,7 +33,7 @@ def get_pointsymbolizer_args(path, width=16, height=16):
     '''
     if hasattr(mapnik, 'PathExpression'):
         return (mapnik.PathExpression(path),)
-    return (path, width, height)
+    return (path, format, width, height)
 
 
 class OceanPointAdapter(workspace.WorkspaceItemAdapter):
