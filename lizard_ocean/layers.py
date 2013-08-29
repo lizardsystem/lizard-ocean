@@ -31,7 +31,7 @@ def wrap_mapnik_path(path):
     For example, in mapnik 2.x the constructor of PointSymbolizer
     needs the file path wrapped in a PathExpression.
     '''
-    if hasattr('PathExpression', mapnik):
+    if hasattr(mapnik, 'PathExpression'):
         return mapnik.PathExpression(path)
     return path
 
