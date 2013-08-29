@@ -94,9 +94,13 @@ class NetcdfFile(object):
 
         The values are in 'minutes since 1970-01-01 00:00:00.0 +0000'.
         """
-
-        return num2date(self.dataset.variables['time'][:],
-                        'minutes since 1970-01-01 00:00:00.0 +0000')
+        datetimes = num2date(self.dataset.variables['time'][:],
+                        self.dataset.variables['time'].units)
+        # NetCDF4 deliberately returns naive datetimes.
+        # We have to manually attach UTC tzinfo objects to them.
+        # ref: http://netcdf4-python.googlecode.com/svn/trunk/docs/netCDF4-module.html#num2date
+        datetimes = [dt.replace(tzinfo=pytz.utc) for dt in datetimes]
+        return datetimes
 
     def values(self, parameter_id, station_index):
         """Return all values for the parameter."""
