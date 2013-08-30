@@ -3,6 +3,7 @@
 import datetime
 import math
 import os
+import logging
 
 from django.utils.functional import cached_property
 from django.conf import settings
@@ -18,6 +19,8 @@ import pytz
 
 from lizard_ocean import netcdf
 
+
+logger = logging.getLogger(__name__)
 
 ICON_STYLE = {'icon': 'buoy.png',  # Buoy.png is available in lizard-map.
               'mask': ('buoy_mask.png', ),
@@ -272,21 +275,14 @@ class OceanRasterAdapter(workspace.WorkspaceItemAdapter):
 
     def __init__(self, *args, **kwargs):
         super(OceanRasterAdapter, self).__init__(*args, **kwargs)
-        if not 'filename' in self.layer_arguments:
-            filename = None
-        else:
-            filename = self.layer_arguments['filename']
-
+        logger.debug('OceanRasterAdapter instanciated')
         self.basedir = settings.OCEAN_RASTER_BASEDIR
-        self.filename = filename
 
     def search(self, google_x, google_y, radius=None):
         return []
 
     def layer(self, layer_ids=None, request=None):
         filename = request.GET.get('FILENAME')
-        if not filename:
-            filename = self.filename
 
         layers = []
         styles = {}
