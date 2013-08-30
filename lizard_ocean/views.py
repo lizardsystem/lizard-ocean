@@ -12,6 +12,7 @@ from lizard_map.lizard_widgets import WorkspaceAcceptable
 from lizard_ui.views import UiView
 
 from lizard_ocean import netcdf
+from lizard_ocean import raster
 
 
 # class TodoView(UiView):
@@ -49,40 +50,25 @@ class MainView(MapView):
                 'workspace_acceptables': netcdf_file.workspace_acceptables})
         return result
 
-    def raster_files(self):
-        """Return workspace acceptables, ordered per png file."""
+    def raster_sets(self):
+        """Return workspace acceptables, ordered per directory containing png files."""
         result = []
-        result.append(
-            {
-                'name': 'Rasters',
-                'workspace_acceptables': [
-                    WorkspaceAcceptable(
-                        name='Naam directory',
-                        adapter_name='adapter_ocean_raster',
-                        adapter_layer_json=json.dumps(
-                            {
-                                'custom_handler_data': {
-                                    'filenames': ['test_20130805.png', 'test_20130806.png', 'test_20130807.png']
-                                },
-                                'needs_custom_handler': True
-                            }
-                        )
-                    ),
-                    WorkspaceAcceptable(
-                        name='Naam directory2',
-                        adapter_name='adapter_ocean_raster',
-                        adapter_layer_json=json.dumps(
-                            {
-                                'custom_handler_data': {
-                                    'filenames': ['test_20130807.png', 'test_20130808.png', 'test_20130809.png', 'test_20130810.png', 'test_20130811.png']
-                                },
-                                'needs_custom_handler': True
-                            }
-                        )
-                    )
-                ]
-            }
-        )
+        for raster_set in raster.raster_sets():
+            adapter_layer_json = json.dumps(
+                {
+                    'raster_set_dir': raster_set.dir,
+                    'custom_handler_data': {
+                        'filenames': raster_set.png_filenames
+                    },
+                    'needs_custom_handler': True
+                }
+            )
+            wsa = WorkspaceAcceptable(
+                name=raster_set.name,
+                adapter_name='adapter_ocean_raster',
+                adapter_layer_json=adapter_layer_json
+            )
+            result.append(wsa)
         return result
 
 

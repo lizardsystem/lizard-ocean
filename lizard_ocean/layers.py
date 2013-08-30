@@ -275,14 +275,21 @@ class OceanRasterAdapter(workspace.WorkspaceItemAdapter):
 
     def __init__(self, *args, **kwargs):
         super(OceanRasterAdapter, self).__init__(*args, **kwargs)
-        logger.debug('OceanRasterAdapter instanciated')
-        self.basedir = settings.OCEAN_RASTER_BASEDIR
+
+        if not 'raster_set_dir' in self.layer_arguments:
+            raise WorkspaceItemError("Key 'raster_set_dir' not found")
+        self.raster_set_dir = self.layer_arguments['raster_set_dir']
 
     def search(self, google_x, google_y, radius=None):
         return []
 
     def layer(self, layer_ids=None, request=None):
         filename = request.GET.get('FILENAME')
+        fullpath = os.path.join(self.raster_set_dir, filename)
+
+        # Simple security check. Perhaps too simple?
+        if not fullpath.startswith(settings.OCEAN_RASTER_BASEDIR):
+            raise WorkspaceItemError('Mismatch beween settings.OCEAN_RASTER_BASEDIR and supplied FILENAME.')
 
         layers = []
         styles = {}
@@ -298,7 +305,7 @@ class OceanRasterAdapter(workspace.WorkspaceItemAdapter):
         styles[STYLE_NAME] = s
 
         # Create a raster layer
-        raster = mapnik.Gdal(base=str(self.basedir), file=str(filename), shared=True)
+        raster = mapnik.Gdal(base=str(self.raster_set_dir), file=str(filename), shared=True)
         layer = mapnik.Layer(b'ocean_raster_layer', coordinates.WGS84)
         layer.datasource = raster
         layer.styles.append(STYLE_NAME)

@@ -42,12 +42,9 @@
     <br />
   {% endfor %}
 
-  {% for point_file in view.raster_files %}
-    <h2>{{ point_file.name }}</h2>
-    {% for workspace_acceptable in point_file.workspace_acceptables %}
-      {{ workspace_acceptable.to_html }}
-    {% endfor %}
-    <br />
+  <h2>Raster sets</h2>
+  {% for workspace_acceptable in view.raster_sets %}
+    {{ workspace_acceptable.to_html }}
   {% endfor %}
 
   {% if user.is_superuser %}

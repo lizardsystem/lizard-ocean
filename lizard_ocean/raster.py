@@ -7,29 +7,31 @@ from __future__ import absolute_import
 from __future__ import division
 
 import os
-import glob
-#import logging
+import logging
 
 from django.conf import settings
 
 
-def rasters(raster_path=settings.OCEAN_RASTER_BASEDIR):
-    """
-    Returns dictionary with raster path names
+logger = logging.getLogger(__name__)
 
-    Look for georeferenced raster files in path and return dictionary with key:
-    date, value: raster path ordered by date
 
-    :param string path: root path with raster data
-    :returns: dictionary with key: date, value: raster path
-    """
-    if os.path.exists(raster_path):
-        raster_list = glob.glob(raster_path + "/*.png")
-    else:
-        raise StandardError("Directory {} does not exist".format(raster_path))
+class RasterSet(object):
+    def __init__(self, dir):
+        self.dir = dir
+        self.name = os.path.basename(dir)
+        self.png_filenames = [f for f in os.listdir(dir) if os.path.splitext(f)[1] == '.png']
+        self.png_filenames = sorted(self.png_filenames)
 
-    #NOTE: works for now; wait for answer client for definitive filename syntax
-    raster_dict = dict((path.split('_')[-1][:-4], path)
-                       for path in raster_list)
 
-    return raster_dict
+def raster_sets(base_dir=settings.OCEAN_RASTER_BASEDIR):
+    if not os.path.exists(base_dir):
+        raise StandardError("Directory {} does not exist".format(base_dir))
+
+    result = []
+
+    for filename in os.listdir(base_dir):
+        raster_set_dir = os.path.join(base_dir, filename)
+        if os.path.isdir(raster_set_dir):
+            result.append(RasterSet(raster_set_dir))
+
+    return result
