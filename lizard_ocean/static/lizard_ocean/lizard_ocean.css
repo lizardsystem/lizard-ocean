@@ -1,19 +1,17 @@
 #current-frame-index-label {
-    width: 5em;
+    width: 20px;
 }
 
 #progress-bar {
-    margin-top: 10px;
+    margin-top: 11px;
     margin-bottom: 0;
-    height: 18px !important;
+    height: 16px !important; /* override Bootstraps greedy "#breadcrumb-row div" selector */
     width: 100px;
-    margin-left: 18px;
-    margin-right: 18px;
 }
 
 #frame-slider {
-    height: 0.8em !important;
-    margin-top: 14px;
+    height: 10px !important; /* override Bootstraps greedy "#breadcrumb-row div" selector */
+    margin-top: 13px;
     width: 100px;
     margin-left: 18px;
     margin-right: 18px;

@@ -62,7 +62,19 @@ class MainView(MapView):
                         adapter_layer_json=json.dumps(
                             {
                                 'custom_handler_data': {
-                                    'filenames': ['test_20130805.png', 'test_20130806.png', 'test_20130807.png', 'test_20130808.png', 'test_20130809.png', 'test_20130810.png', 'test_20130811.png']
+                                    'filenames': ['test_20130805.png', 'test_20130806.png', 'test_20130807.png']
+                                },
+                                'needs_custom_handler': True
+                            }
+                        )
+                    ),
+                    WorkspaceAcceptable(
+                        name='Naam directory2',
+                        adapter_name='adapter_ocean_raster',
+                        adapter_layer_json=json.dumps(
+                            {
+                                'custom_handler_data': {
+                                    'filenames': ['test_20130807.png', 'test_20130808.png', 'test_20130809.png', 'test_20130810.png', 'test_20130811.png']
                                 },
                                 'needs_custom_handler': True
                             }
