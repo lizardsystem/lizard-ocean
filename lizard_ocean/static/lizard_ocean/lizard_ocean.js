@@ -318,6 +318,7 @@
         frameLabel = frameLabel.replace(/\./g, ' ');
 
         var options = $.extend({}, workspaceItemOptions, {
+            opacity: 0.7,
             isBaseLayer: false,
             visibility: true, // keep this, so all layers are preloaded in the browser
             cssVisibility: false, // hide layer again with this custom option
