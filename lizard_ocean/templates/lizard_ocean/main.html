@@ -1,4 +1,5 @@
 {% extends "lizard_map/wms.html" %}
+{% load i18n %}
 
 {% block css %}
   {{ block.super }}
@@ -12,6 +13,39 @@
   {{ block.super }}
   <script src="{{ STATIC_URL  }}lizard_ocean/lizard_ocean.js"></script>
 {% endblock map-javascript %}
+
+{% block date-ranges %}
+            '{% trans "Past day" %}': [
+                moment.utc().subtract('days', 1),
+                moment.utc(),
+                'today'
+            ],
+            '{% trans "Past 2 days" %}': [
+                moment.utc().subtract('days', 2),
+                moment.utc(),
+                '2_day'
+            ],
+            '{% trans "Past week" %}': [
+                moment.utc().subtract('weeks', 1),
+                moment.utc(),
+                'week'
+            ],
+            '{% trans "Past month" %}': [
+                moment.utc().subtract('months', 1),
+                moment.utc(),
+                'month'
+            ],
+            '{% trans "Past six months" %}': [
+                moment.utc().subtract('months', 6),
+                moment.utc(),
+                '6_month'
+            ],
+            '{% trans "Past year" %}': [
+                moment.utc().subtract('years', 1),
+                moment.utc(),
+                'year'
+            ]
+{% endblock date-ranges %}
 
 {% block breadcrumbs %}
   <ul class="nav">
