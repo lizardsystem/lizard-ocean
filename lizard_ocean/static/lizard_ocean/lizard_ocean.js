@@ -23,6 +23,7 @@
         cssVisibility: true,
         isAnimated: true,
         frameIndex: null,
+        frameLabel: '',
 
         initialize: function (name, url, params, options) {
             OpenLayers.Layer.WMS.prototype.initialize.apply(
@@ -31,6 +32,9 @@
                 this.cssVisibility = options.cssVisibility;
             }
             this.frameIndex = options.frameIndex;
+            if (options.frameLabel) {
+                this.frameLabel = options.frameLabel;
+            }
             this.events.on({
                 'added': this.updateCssVisibility,
                 'moveend': this.updateCssVisibility,
@@ -66,6 +70,7 @@
         cssVisibility: true,
         isAnimated: true,
         frameIndex: null,
+        frameLabel: '',
 
         initialize: function (name, url, extent, size, options) {
             OpenLayers.Layer.Image.prototype.initialize.apply(
@@ -74,6 +79,9 @@
                 this.cssVisibility = options.cssVisibility;
             }
             this.frameIndex = options.frameIndex;
+            if (options.frameLabel) {
+                this.frameLabel = options.frameLabel;
+            }
             this.events.on({
                 'added': this.updateCssVisibility,
                 'moveend': this.updateCssVisibility,
@@ -132,6 +140,8 @@
     var $currentFrameIndexLabel;
     var $frameSlider;
     var $progressBar;
+    var $currentFilenameLabel;
+    var currentFilenameLabelHideTimeout = null;
 
     function updateFrames (newFrames) {
         var wasRunning = stopIfRunning();
@@ -244,7 +254,7 @@
     }
 
     function setFrame (newFrameIndex, force) {
-        console.log('setFrame', newFrameIndex);
+        console.log('setFrame ', newFrameIndex);
 
         if (currentFrameIndex !== newFrameIndex || force === true) {
             // swap out visibility
@@ -256,9 +266,17 @@
             }
             if (newFrameIndex !== -1) {
                 var newFrames = getFramesByIndex(newFrameIndex);
+                var frameLabels = [];
                 $.each(newFrames, function () {
                     this.setCssVisibility(true);
+                    frameLabels.push(this.frameLabel);
                 });
+                if (frameLabels) {
+                    setFilenameLabel(frameLabels);
+                }
+            }
+            else {
+                setFilenameLabel([]);
             }
 
             // update with next layer index
@@ -294,6 +312,10 @@
         var wmsParams = $.extend({}, workspaceItemWmsParams);
         wmsParams['tilesorigin'] = [map.maxExtent.left, map.maxExtent.bottom];
         wmsParams['filename'] = filename;
+        var frameLabel = filename;
+        frameLabel = frameLabel.replace(/\.\w+$/g, '');
+        frameLabel = frameLabel.replace(/_/g, ' ');
+        frameLabel = frameLabel.replace(/\./g, ' ');
 
         var options = $.extend({}, workspaceItemOptions, {
             isBaseLayer: false,
@@ -311,7 +333,8 @@
                 }
             },
             projection: 'EPSG:900913',
-            frameIndex: frameIndex
+            frameIndex: frameIndex,
+            frameLabel: frameLabel
         });
 
         var olLayer = new CssHideableWMSLayer(
@@ -369,6 +392,45 @@
                 sliderData._trigger('change', event, ui);
             }
         });
+    }
+
+    function initFilenameLabel () {
+        $currentFilenameLabel = $('<div id="current-filename-label">');
+        $currentFilenameLabel.css({
+            'position': 'absolute',
+            'right': '10px',
+            'top': '100px',
+            'border-radius': '4px',
+            'background-color': '#fff',
+            'padding': '3px',
+            'z-index': '10000'
+        });
+        $currentFilenameLabel.appendTo('body');
+    }
+
+    function setFilenameLabel (lineArray) {
+        if (currentFilenameLabelHideTimeout !== null) {
+            clearTimeout(currentFilenameLabelHideTimeout);
+            currentFilenameLabelHideTimeout = null;
+        }
+
+        var html = '';
+        $.each(lineArray, function () {
+            html += this + '<br/>';
+        });
+
+        if (html) {
+            $currentFilenameLabel.html(html);
+            $currentFilenameLabel.show();
+
+            currentFilenameLabelHideTimeout = setTimeout(function () {
+                $currentFilenameLabel.hide();
+                currentFilenameLabelHideTimeout = null;
+            }, 5000);
+        }
+        else {
+            $currentFilenameLabel.hide();
+        }
     }
 
     function start () {
@@ -506,6 +568,7 @@
         if (!controlsInitialized) {
             initStartStopButton();
             initFrameSlider();
+            initFilenameLabel();
             initProgressBar();
             controlsInitialized = true;
        }
