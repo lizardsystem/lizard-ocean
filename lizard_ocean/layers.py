@@ -49,6 +49,12 @@ class OceanPointAdapter(workspace.WorkspaceItemAdapter):
         self.filename = os.path.join(settings.OCEAN_NETCDF_BASEDIR, 
                                      self.layer_arguments['filename'])
         self.parameter_id = self.layer_arguments['parameter_id']
+        self.parameter_name = ''
+        self.parameter_unit = ''
+        for parameter in self.netcdf_file.parameters:
+            if parameter['id'] == self.parameter_id:
+                self.parameter_unit= parameter['unit']
+                self.parameter_name= parameter['name']
 
     @cached_property
     def netcdf_file(self):
@@ -203,7 +209,8 @@ class OceanPointAdapter(workspace.WorkspaceItemAdapter):
                            tz=pytz.timezone(settings.TIME_ZONE),
                            **extra_params)
         graph.axes.grid(True)
-        # graph.axes.set_ylabel(unit)
+        graph.axes.set_ylabel('{} ({})'.format(self.parameter_name,
+                                               self.parameter_unit))
 
         title = None
         y_min, y_max = None, None
@@ -256,6 +263,19 @@ class OceanPointAdapter(workspace.WorkspaceItemAdapter):
 
         graph.add_today()
         return graph.render()
+
+    def values(self, identifier, start_date, end_date):
+        location = self.location(**identifier)
+        station_index = location['object']['station_index']
+        # Plot data if available.
+        pairs = self.netcdf_file.time_value_pairs(self.parameter_id, 
+                                                  station_index)
+        pairs = [(date, value) for date, value in pairs
+                 if start_date < date < end_date]
+        return [{'value': value, 
+                 'datetime': date, 
+                 'unit': self.parameter_unit}
+                for date, value in pairs]
 
 
 class OceanRasterAdapter(workspace.WorkspaceItemAdapter):
