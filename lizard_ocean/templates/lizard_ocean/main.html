@@ -47,8 +47,9 @@
             ]
 {% endblock date-ranges %}
 
-{% block breadcrumbs %}
-  <ul class="nav">
+{% block content-actions %}
+  {{ block.super }}
+  <ul class="nav pull-right">
     <li>
       <button id="start-stop-button" class="btn btn-info"><i class="icon-play"></i></button>
     </li>
@@ -64,6 +65,9 @@
       </div>
     </li>
   </ul>
+{% endblock content-actions %}
+
+{% block breadcrumbs %}
   {{ block.super }}
 {% endblock breadcrumbs %}
 

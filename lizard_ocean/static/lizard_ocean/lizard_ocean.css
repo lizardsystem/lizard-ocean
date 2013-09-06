@@ -1,5 +1,6 @@
 #current-frame-index-label {
     width: 20px;
+    margin-top: 10px;
 }
 
 #progress-bar {
@@ -18,7 +19,6 @@
 }
 
 #start-stop-button {
-    margin-top: -4px;
 }
 
 /* fix jquery ui slider */
