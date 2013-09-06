@@ -11,7 +11,7 @@ from django.http import Http404
 from lizard_map import coordinates
 from lizard_map.exceptions import WorkspaceItemError
 from lizard_map import workspace
-from lizard_map.adapter import FlotGraph
+from lizard_map.adapter import FlotGraph, Graph
 from lizard_map.models import ICON_ORIGINALS
 from lizard_map.symbol_manager import SymbolManager
 import mapnik
@@ -173,23 +173,11 @@ class OceanPointAdapter(workspace.WorkspaceItemAdapter):
     def html(self, *args, **kwargs):
         return super(OceanPointAdapter, self).html_default(*args, **kwargs)
 
-    def flot_graph_data(
-        self,
-        identifiers,
-        start_date,
-        end_date,
-        layout_extra=None,
-        raise_404_if_empty=False
-    ):
-        """Copy/pasted from lizard-fewsjdbc."""
-        return self._render_graph(
-            identifiers,
-            start_date,
-            end_date,
-            layout_extra=layout_extra,
-            raise_404_if_empty=raise_404_if_empty,
-            GraphClass=FlotGraph
-        )
+    def flot_graph_data(self, identifiers, start_date, end_date, layout_extra=None, raise_404_if_empty=False):
+        return self._render_graph(identifiers, start_date, end_date, layout_extra=layout_extra, raise_404_if_empty=raise_404_if_empty, GraphClass=FlotGraph)
+
+    def image(self, identifiers, start_date, end_date, width=380.0, height=250.0, layout_extra=None, raise_404_if_empty=False):
+        return self._render_graph(identifiers, start_date, end_date, width=width, height=height, layout_extra=layout_extra, raise_404_if_empty=raise_404_if_empty, GraphClass=Graph)
 
     def _render_graph(
         self,
