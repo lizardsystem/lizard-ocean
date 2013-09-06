@@ -1,10 +1,10 @@
 {% extends "lizard_map/wms.html" %}
-{% load i18n %}
+{% load i18n staticfiles %}
 
 {% block css %}
   {{ block.super }}
   <link rel="stylesheet"
-        href="{{ STATIC_URL }}lizard_ocean/lizard_ocean.css"
+        href="{% static 'lizard_ocean/lizard_ocean.css' %}"
         type="text/css"
         media="screen, projection" />
 {% endblock css %}
@@ -94,5 +94,19 @@
       </li>
     </ul>
   {% endif %}
+
+  <br />
+  <div>
+    <img src="{% static 'lizard_ocean/abudhabi_gov_logo.gif' %}"
+         alt="Abu Dhabi logo" />
+  </div>
+  <div>
+    <img src="{% static 'lizard_ocean/logo_adm.gif' %}"
+         alt="Abu Dhabi logo" />
+  </div>
+  <div>
+    <img src="{% static 'lizard_ocean/deltares_logo.gif' %}"
+         alt="Abu Dhabi logo" />
+  </div>
 
 {% endblock %}
