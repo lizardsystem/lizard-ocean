@@ -308,6 +308,7 @@ class OceanRasterAdapter(workspace.WorkspaceItemAdapter):
         s = mapnik.Style()
         r = mapnik.Rule()
         rs = mapnik.RasterSymbolizer()
+        rs.scaling = mapnik.scaling_method.BILINEAR8
         r.symbols.append(rs)
         s.rules.append(r)
         styles[STYLE_NAME] = s
