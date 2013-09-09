@@ -29,7 +29,7 @@ def raster_sets(base_dir=settings.OCEAN_RASTER_BASEDIR):
 
     result = []
 
-    for filename in os.listdir(base_dir):
+    for filename in sorted(os.listdir(base_dir)):
         raster_set_dir = os.path.join(base_dir, filename)
         if os.path.isdir(raster_set_dir):
             result.append(RasterSet(raster_set_dir))
