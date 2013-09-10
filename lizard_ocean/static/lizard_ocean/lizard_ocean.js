@@ -576,4 +576,7 @@
     }
 
     window.refreshAnimatedLayers = refreshAnimatedLayers;
+
+    // force i18n to english
+    moment.lang('en');
 })();
