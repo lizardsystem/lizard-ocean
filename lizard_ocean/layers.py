@@ -104,26 +104,16 @@ class OceanPointAdapter(workspace.WorkspaceItemAdapter):
         layers = []
         styles = {}
         layer = mapnik.Layer("OCEAN points layer", coordinates.WGS84)
-        layer.datasource = mapnik.PointDatasource()
-        # Use these coordinates to put points 'around' actual
-        # coordinates, to compensate for bug #402 in mapnik.
-        around = [(0.00001, 0),
-                  (-0.00001, 0),
-                  (0, 0.00001),
-                  (0, -0.00001)]
 
-        for station in self._stations:
-            layer.datasource.add_point(
-                station['x'], 
-                station['y'], 
-                'Name', 
-                str(station['name']))
-            for offset_x, offset_y in around:
-                layer.datasource.add_point(
-                    station['x'] + offset_x, 
-                    station['y'] + offset_y,
-                    'Name', 
-                    str(station['name']))
+        layer.datasource = mapnik.MemoryDatasource()
+        context = mapnik.Context()
+        for i, station in enumerate(self._stations):
+            f = mapnik.Feature(context, i)
+            f['Name'] = str(station['name'])
+            # TODO: might want to use something like this, instead of WKT. But how?
+            #f.add_geometry(Point(station['x'], station['y']))
+            f.add_geometries_from_wkt('POINT({} {})'.format(station['x'], station['y']))
+            layer.datasource.add_feature(f)
 
         # generate "unique" point style name and append to layer
         style_name = "ocean"
