@@ -319,6 +319,7 @@
 
         var options = $.extend({}, workspaceItemOptions, {
             opacity: 0.9,
+            attribution: 'Powered by Lizard',
             isBaseLayer: false,
             visibility: true, // keep this, so all layers are preloaded in the browser
             cssVisibility: false, // hide layer again with this custom option
@@ -571,6 +572,7 @@
             initFrameSlider();
             initFilenameLabel();
             initProgressBar();
+            map.addControl(new OpenLayers.Control.Attribution());
             controlsInitialized = true;
        }
     }

@@ -32,6 +32,10 @@
     z-index: auto;
 }
 
+.olControlAttribution {
+    bottom: 0;
+}
+
 .olControlOverviewMapElement {
     padding: 2px 18px 2px 2px;
 }
