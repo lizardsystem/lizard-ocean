@@ -60,7 +60,7 @@ class NetcdfFile(object):
         """
         result = []
         known_variables = ['x', 'y', 'time', 'lat', 'lon',
-                           'station_id', 'station_names', 'crs']
+                           'station_id', 'station_names', 'crs', 'analysis_time']
         for id, variable in self.dataset.variables.items():
             if id in known_variables:
                 continue
