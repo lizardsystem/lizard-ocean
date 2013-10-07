@@ -18,7 +18,22 @@
   while (method = methods.pop()) con[method] = con[method] || dummy;
 })(window.console = window.console || {});
 
+/* ******************************************************************** */
+/* ******************************************************************** */
+/* ******************************************************************** */
+/* ******************************************************************** */
+/* ******************************************************************** */
+/* ******************************************************************** */
 (function () {
+    var RASTER_LAYER_ZINDEX = 700;
+    var LOCATIONS_LAYER_ZINDEX = 1000;
+
+    /* ******************************************************************** */
+    /* ******************************************************************** */
+    /* ******************************************************************** */
+    /* ******************************************************************** */
+    /* ******************************************************************** */
+    /* ******************************************************************** */
     var CssHideableWMSLayer = OpenLayers.Class(OpenLayers.Layer.WMS, {
         cssVisibility: true,
         isAnimated: true,
@@ -119,12 +134,6 @@
     /* ******************************************************************** */
     /* ******************************************************************** */
     /* ******************************************************************** */
-    /* ******************************************************************** */
-    /* ******************************************************************** */
-    /* ******************************************************************** */
-    /* ******************************************************************** */
-    /* ******************************************************************** */
-    /* ******************************************************************** */
     var frames = {};
     var frameCount = 0;
 
@@ -143,31 +152,47 @@
     var $currentFilenameLabel;
     var currentFilenameLabelHideTimeout = null;
 
+    function refreshAnimatedLayers (rastersets) {
+        var newFrames = {};
+        $.each(rastersets, function () {
+            var rasterset = this;
+            var frames = [];
+            $.each(rasterset.children, function (frameIndex) {
+                var child = this;
+                var frame = createFrame(rasterset.identifier, rasterset.name, child.identifier, child.name, frameIndex);
+                frames.push(frame);
+            });
+            newFrames[rasterset.identifier] = frames;
+        });
+
+        updateFrames(newFrames);
+    }
+
     function updateFrames (newFrames) {
         var wasRunning = stopIfRunning();
 
         // Iterate through all layers, and remove the ones that aren't
-        // present in the workspace anymore.
+        // present in the selected frames anymore.
 
         // Find out what is missing, and what is new. We don't deal with updates.
         var toAdd = [];
         var toRemove = [];
-        $.each(frames, function (workspaceItemId, workspaceItemFrames) {
-            if (!(workspaceItemId in newFrames)) {
-                toRemove.push(workspaceItemId);
+        $.each(frames, function (frameSetId, frameSetFrames) {
+            if (!(frameSetId in newFrames)) {
+                toRemove.push(frameSetId);
             }
         });
-        $.each(newFrames, function (workspaceItemId, workspaceItemFrames) {
-            if (!(workspaceItemId in frames)) {
-                toAdd.push(workspaceItemId);
+        $.each(newFrames, function (frameSetId, frameSetFrames) {
+            if (!(frameSetId in frames)) {
+                toAdd.push(frameSetId);
             }
         });
 
         // Remove all related layers from the map.
         $.each(toRemove, function () {
-            var workspaceItemId = this;
-            var workspaceItemFrames = frames[workspaceItemId];
-            $.each(workspaceItemFrames, function () {
+            var frameSetId = this;
+            var frameSetFrames = frames[frameSetId];
+            $.each(frameSetFrames, function () {
                 try {
                     map.removeLayer(this);
                 }
@@ -175,22 +200,23 @@
                     console.error('map.removeLayer error');
                 }
             });
-            delete frames[workspaceItemId];
+            delete frames[frameSetId];
         });
 
         // Add any new layers to the map.
         $.each(toAdd, function () {
-            var workspaceItemId = this;
-            var workspaceItemFrames = newFrames[workspaceItemId];
-            $.each(workspaceItemFrames, function () {
+            var frameSetId = this;
+            var frameSetFrames = newFrames[frameSetId];
+            $.each(frameSetFrames, function () {
                 try {
                     map.addLayer(this);
+                    this.setZIndex(RASTER_LAYER_ZINDEX);
                 }
                 catch (e) {
                     console.error('map.addLayer error');
                 }
             });
-            frames[workspaceItemId] = workspaceItemFrames;
+            frames[frameSetId] = frameSetFrames;
         });
 
         updateFrameCount();
@@ -224,9 +250,9 @@
     function updateFrameCount () {
         // calculate highest amount of frames
         frameCount = 0;
-        $.each(frames, function (workspaceItemId, workspaceItemFrames) {
-            if (workspaceItemFrames.length > frameCount) {
-                frameCount = workspaceItemFrames.length;
+        $.each(frames, function (frameSetId, frameSetFrames) {
+            if (frameSetFrames.length > frameCount) {
+                frameCount = frameSetFrames.length;
             }
         });
 
@@ -235,9 +261,9 @@
 
     function getFramesByIndex (frameIndex) {
         var result = [];
-        $.each(frames, function (workspaceItemId, workspaceItemFrames) {
-            if (frameIndex in workspaceItemFrames) {
-                result.push(workspaceItemFrames[frameIndex]);
+        $.each(frames, function (frameSetId, frameSetFrames) {
+            if (frameIndex in frameSetFrames) {
+                result.push(frameSetFrames[frameIndex]);
             }
         });
         return result;
@@ -245,8 +271,8 @@
 
     function getAllFramesFlat () {
         var result = [];
-        $.each(frames, function (workspaceItemId, workspaceItemFrames) {
-            $.each(workspaceItemFrames, function () {
+        $.each(frames, function (frameSetId, frameSetFrames) {
+            $.each(frameSetFrames, function () {
                 result.push(this);
             });
         });
@@ -305,19 +331,22 @@
        }
     }
 
-    function createFrame (workspaceItemId, workspaceItemName, workspaceItemWmsParams, workspaceItemOptions, workspaceItemUrl, workspaceItemIndex, filename, frameIndex) {
-        var name = workspaceItemName + '_' + workspaceItemId + '_' + frameIndex;
+    function createFrame (rastersetId, rastersetName, frameId, frameName, frameIndex) {
+        var name = frameId;
 
-        var wmsUrl = workspaceItemUrl;
-        var wmsParams = $.extend({}, workspaceItemWmsParams);
-        wmsParams['tilesorigin'] = [map.maxExtent.left, map.maxExtent.bottom];
-        wmsParams['filename'] = filename;
-        var frameLabel = filename;
+        var wmsUrl = '/ocean/ejwms/';
+        var wmsParams = $.extend({}, {
+            tilesorigin: [map.maxExtent.left, map.maxExtent.bottom],
+            layers: frameId,
+            filterbytype: 'rasters'
+        });
+        var frameLabel = frameName;
         frameLabel = frameLabel.replace(/\.\w+$/g, '');
         frameLabel = frameLabel.replace(/_/g, ' ');
         frameLabel = frameLabel.replace(/\./g, ' ');
 
-        var options = $.extend({}, workspaceItemOptions, {
+        var options = $.extend({}, {
+            singleTile: true,
             opacity: 0.9,
             attribution: 'Powered by Lizard',
             isBaseLayer: false,
@@ -540,33 +569,7 @@
         $progressBar.find('.bar').css({width: pct});
     }
 
-    function refreshAnimatedLayers () {
-        initControls();
-
-        var newFrames = {};
-        $('#lizard-map-wms .lizard-map-wms-item[data-workspace-wms-needs-custom-handler="true"]').each(function () {
-            var $el = $(this);
-            var workspaceItemId = $el.data('workspace-wms-id');
-            var workspaceItemName = $el.data('workspace-wms-name');
-            var workspaceItemWmsParams = $el.data('workspace-wms-params');
-            var workspaceItemOptions = $el.data('workspace-wms-options');
-            var workspaceItemUrl = $el.data('workspace-wms-url');
-            var workspaceItemIndex = $el.data('workspace-wms-index');
-            var handlerData = $el.data('workspace-wms-custom-handler-data');
-
-            var workspaceItemFrames = [];
-            $.each(handlerData.filenames, function (frameIndex) {
-                var filename = this;
-                var frame = createFrame(workspaceItemId, workspaceItemName, workspaceItemWmsParams, workspaceItemOptions, workspaceItemUrl, workspaceItemIndex, filename, frameIndex);
-                workspaceItemFrames.push(frame);
-            });
-            newFrames[workspaceItemId] = workspaceItemFrames;
-        });
-
-        updateFrames(newFrames);
-    }
-
-    function initControls () {
+    function initAnimationControls () {
         if (!controlsInitialized) {
             initStartStopButton();
             initFrameSlider();
@@ -577,47 +580,12 @@
        }
     }
 
-    window.refreshAnimatedLayers = refreshAnimatedLayers;
-
-    // force i18n to english
-    moment.lang('en');
-})();
-
-(function () {
-    // function getEndpoints (nodes) {
-        // var endpoints = {
-            // rastersetItems: [],
-            // rastersets: [],
-            // netcdfParameters: [],
-            // netcdfs: []
-        // };
-// 
-        // $.each(nodes, function () {
-            // var node = this;
-            // if (node.data.isRastersetItem) {
-                // endpoints.rastersetItems.push(node.data.identifier);
-            // }
-            // else if (node.data.isRasterset) {
-                // endpoints.rastersets.push(node.data.identifier);
-            // }
-            // else if (node.data.isNetcdfParameter) {
-                // endpoints.netcdfParameters.push(node.data.identifier);
-            // }
-            // else if (node.data.isNetcdf) {
-                // endpoints.netcdfs.push(node.data.identifier);
-            // }
-            // else if (node.data.isFolder) {
-                // // add children
-                // var subendpoints = getEndpoints(node.children);
-                // $.merge(endpoints.rastersetItems, subendpoints.rastersetItems);
-                // $.merge(endpoints.rastersets, subendpoints.rastersets);
-                // $.merge(endpoints.netcdfParameters, subendpoints.netcdfParameters);
-                // $.merge(endpoints.netcdfs, subendpoints.netcdfs);
-            // }
-        // });
-// 
-        // return endpoints;
-    // }
+    /* ******************************************************************** */
+    /* ******************************************************************** */
+    /* ******************************************************************** */
+    /* ******************************************************************** */
+    /* ******************************************************************** */
+    /* ******************************************************************** */
 
     function getIdentifiers (nodes) {
         var identifiers = [];
@@ -629,19 +597,56 @@
     }
 
     $(document).ready(function () {
-        var netcdfLayer = new OpenLayers.Layer.WMS('netcdf', '/ocean/ejwms/',
+        // Force i18n to English.
+        moment.lang('en');
+
+        // Add a single OL layer for the locations.
+        var locationsLayer = new OpenLayers.Layer.WMS('locations', '/ocean/ejwms/',
         {
             layers: [],
-            format: 'image/png'
+            format: 'image/png',
+            filterbytype: 'locations'
         },
         {
             isBaseLayer: false,
             singleTile: true,
             displayInLayerSwitcher: false
         });
-        map.addLayer(netcdfLayer);
-        netcdfLayer.setZIndex(1000);
+        map.addLayer(locationsLayer);
+        locationsLayer.setZIndex(LOCATIONS_LAYER_ZINDEX);
 
+        // Initialize rastersets animation.
+        initAnimationControls();
+        var refreshRastersetsTimeout = null;
+        var refreshRastersetsDeferred = null;
+        function getRastersetInfo (identifiers) {
+            if (refreshRastersetsDeferred !== null) {
+                refreshRastersetsDeferred.abort();
+            }
+            refreshRastersetsDeferred = $.get('/ocean/ejrastersetinfo/', {identifiers: identifiers.join(',')})
+            .done(function (data) {
+                var rastersetInfo = data;
+                refreshAnimatedLayers(rastersetInfo);
+            })
+            .fail(function (data) {
+                console.log('getRastersetInfo fail');
+            })
+            .always(function () {
+                refreshRastersetsDeferred = null;
+            });
+        }
+        function refreshRastersets (identifiers) {
+            if (refreshRastersetsTimeout !== null) {
+                window.clearTimeout(refreshRastersetsTimeout);
+                refreshRastersetsTimeout = null;
+            }
+            refreshRastersetsTimeout = window.setTimeout(function () {
+                refreshRastersetsTimeout = null;
+                getRastersetInfo(identifiers);
+            }, 200);
+        }
+
+        // Initialize the tree.
         $("#ocean-tree").fancytree({
             source: treeData,
             checkbox: true,
@@ -658,21 +663,17 @@
             },
             select: function(event, data) {
                 var nodes = data.tree.getSelectedNodes(true);
-                // var endpoints = getEndpoints(nodes);
-                // console.log('rastersetitems ', endpoints.rastersetItems);
-                // console.log('rastersets ', endpoints.rastersets);
-                // console.log('netcdfparameters ', endpoints.netcdfParameters);
-                // console.log('netcdfs ', endpoints.netcdfs);
 
                 var identifiers = getIdentifiers(nodes);
                 console.log('identifiers ', identifiers);
-                netcdfLayer.mergeNewParams({
+                locationsLayer.mergeNewParams({
                     layers: identifiers
                 });
-                // netcdfLayer.mergeNewParams({
-                    // layers: $.merge($.merge([], endpoints.netcdfParameters), endpoints.netcdfs)
-                // });
-                netcdfLayer.redraw(true);
+                // Need to do this each time after a mergeNewParams.
+                locationsLayer.setZIndex(LOCATIONS_LAYER_ZINDEX);
+                locationsLayer.redraw(true);
+
+                refreshRastersets(identifiers);
             }
         });
     });

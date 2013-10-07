@@ -18,6 +18,7 @@ import mapnik
 import pytz
 
 from lizard_ocean import netcdf
+from lizard_ocean import ocean_data
 
 
 logger = logging.getLogger(__name__)
@@ -42,29 +43,49 @@ def distance(x1, y1, x2, y2):
     return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
 class FilteredOceanAdapter(object):
-    def __init__(self, locations):
-        self.locations = locations
+    def __init__(self, nodes):
+        self.nodes = nodes
 
-    def point_layer(self):
+    def layers(self):
+        layers = []
         styles = {}
-        layer = mapnik.Layer("OCEAN points layer", coordinates.WGS84)
 
-        layer.datasource = mapnik.MemoryDatasource()
-        context = mapnik.Context()
-        for i, location in enumerate(self.locations):
-            f = mapnik.Feature(context, i)
-            f['Name'] = str(location['name'])
-            # TODO: might want to use something like this, instead of WKT. But how?
-            #f.add_geometry(Point(station['x'], station['y']))
-            f.add_geometries_from_wkt('POINT({} {})'.format(location['location_x'], location['location_y']))
-            layer.datasource.add_feature(f)
+        # Draw locations to a single fixed layer.
+        locations = [node for node in self.nodes if node['is_location']]
+        if locations:
+            point_layer = mapnik.Layer(b'ocean locations', coordinates.WGS84)
+            point_layer.datasource = mapnik.MemoryDatasource()
 
-        # generate "unique" point style name and append to layer
-        style_name = "ocean"
-        styles[style_name] = self._point_style()
-        layer.styles.append(style_name)
+            s_name_1 = b'ocean_location_style'
+            styles[s_name_1] = self._get_location_style()
+            point_layer.styles.append(s_name_1)
 
-        layers = [layer, ]
+            context = mapnik.Context()
+            for i, location in enumerate(locations):
+                f = mapnik.Feature(context, i)
+                f['Name'] = str(location['name'])
+                # TODO: might want to use something like this, instead of WKT. But how?
+                #f.add_geometry(Point(station['x'], station['y']))
+                f.add_geometries_from_wkt('POINT({} {})'.format(location['location_x'], location['location_y']))
+                point_layer.datasource.add_feature(f)
+    
+            layers.append(point_layer)
+
+        rasters = [node for node in self.nodes if node['is_raster']]
+        if rasters:
+            s_name_2 = b'ocean_raster_style'
+            styles[s_name_2] = self._get_raster_style()
+
+            # Create a raster layer
+            for raster in rasters:
+                file = raster['path']
+                layer_name = raster['name']
+                raster_ds = mapnik.Gdal(file=str(file), shared=True)
+                layer = mapnik.Layer(str(layer_name), coordinates.WGS84)
+                layer.datasource = raster_ds
+                layer.styles.append(s_name_2)
+                layers.append(layer)
+
         return layers, styles
 
     def search(self, google_x, google_y, radius=None):
@@ -73,7 +94,7 @@ class FilteredOceanAdapter(object):
 
         """
         result = []
-        for location in self.locations:
+        for location in self.nodes:
             x, y = coordinates.wgs84_to_google(
                 location['location_x'],
                 location['location_y'])
@@ -92,88 +113,7 @@ class FilteredOceanAdapter(object):
         else:
             return []
 
-    # @ cached
-    def _point_style(self):
-        symbol_manager = SymbolManager(
-            ICON_ORIGINALS,
-            os.path.join(settings.MEDIA_ROOT, 'generated_icons'))
-        output_filename = symbol_manager.get_symbol_transformed(
-            ICON_STYLE['icon'], **ICON_STYLE)
-        output_filename_abs = os.path.join(
-            settings.MEDIA_ROOT, 'generated_icons', output_filename)
-        # use filename in mapnik pointsymbolizer
-        point_looks = mapnik.PointSymbolizer(*get_pointsymbolizer_args(output_filename_abs))
-        point_looks.allow_overlap = True
-        layout_rule = mapnik.Rule()
-        layout_rule.symbols.append(point_looks)
-        point_style = mapnik.Style()
-        point_style.rules.append(layout_rule)
-        return point_style
-'''
-class FilteredOceanAdapterOld(object):
-    def __init__(self, filename_parameter_map={}):
-        self.filename_parameter_map = filename_parameter_map
-
-    def point_layer(self, station_ids=[]):
-        styles = {}
-        layer = mapnik.Layer("OCEAN points layer", coordinates.WGS84)
-
-        layer.datasource = mapnik.MemoryDatasource()
-        context = mapnik.Context()
-        for i, station in enumerate(self._stations()):
-            f = mapnik.Feature(context, i)
-            f['Name'] = str(station['name'])
-            # TODO: might want to use something like this, instead of WKT. But how?
-            #f.add_geometry(Point(station['x'], station['y']))
-            f.add_geometries_from_wkt('POINT({} {})'.format(station['x'], station['y']))
-            layer.datasource.add_feature(f)
-
-        # generate "unique" point style name and append to layer
-        style_name = "ocean"
-        styles[style_name] = self._point_style()
-        layer.styles.append(style_name)
-
-        layers = [layer, ]
-        return layers, styles
-
-    def search(self, google_x, google_y, radius=None):
-        """Return list of dict {'distance': <float>, 'timeserie':
-        <timeserie>} of closest points that match x, y, radius.
-
-        """
-        result = []
-        for station in self._stations():
-            x, y = coordinates.wgs84_to_google(
-                station['x'],
-                station['y'])
-            dist = distance(google_x, google_y, x, y)
-            if dist < radius:
-                result.append(
-                    {'distance': dist,
-                     'name': station['name'],
-                     'shortname': station['name'],
-                     'identifier': {'station_id': station['id']},
-                     'google_coords': (x, y),
-                     'object': None})
-        result.sort(key=lambda item: item['distance'])
-        if result:
-            return result[:1]
-        else:
-            return []
-
-    def search_station(self, station_id):
-        for station in self._stations():
-            if station['id'] == station_id:
-                return {
-                    'name': station['name'],
-                    'shortname': station['name'],
-                    'identifier': {'station_id': station['id']},
-                    'google_coords': coordinates.wgs84_to_google(station['x'], station['y']),
-                    'object': station
-                }
-
-    # @ cached
-    def _point_style(self):
+    def _get_location_style(self):
         symbol_manager = SymbolManager(
             ICON_ORIGINALS,
             os.path.join(settings.MEDIA_ROOT, 'generated_icons'))
@@ -190,26 +130,15 @@ class FilteredOceanAdapterOld(object):
         point_style.rules.append(layout_rule)
         return point_style
 
-    def _stations(self):
-        for netcdf_file, netcdf_filter in self._netcdf_files():
-            stations = netcdf_file.stations
-            if netcdf_filter['station_ids']:
-                # Filter stations by ID.
-                stations = filter(lambda station: station['id'] in netcdf_filter['station_ids'], stations)
-            for station in stations:
-                yield station
+    def _get_raster_style(self):
+        s = mapnik.Style()
+        r = mapnik.Rule()
+        rs = mapnik.RasterSymbolizer()
+        rs.scaling = mapnik.scaling_method.BILINEAR8
+        r.symbols.append(rs)
+        s.rules.append(r)
+        return s
 
-    def _netcdf_files(self):
-        return [
-            (self._netcdf_file(filename), netcdf_filter)
-            for filename, netcdf_filter
-            in self.filename_parameter_map.items()
-        ]
-
-    # @ cached!
-    def _netcdf_file(self, filename):
-        netcdf_file = netcdf.NetcdfFile(filename)
-        return netcdf_file
 '''
 class OceanPointAdapter(workspace.WorkspaceItemAdapter):
     # Note: bit of copy/paste from lizard-fewsjdbc's adapter.
@@ -438,7 +367,7 @@ class OceanRasterAdapter(workspace.WorkspaceItemAdapter):
 
     def legend(self, updates=None):
         return None
-
+'''
 
 def apply_world_file(basedir, filename, layer):
     '''

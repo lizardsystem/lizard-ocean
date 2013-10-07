@@ -12,7 +12,6 @@ from netCDF4 import Dataset
 from netCDF4 import num2date
 from django.conf import settings
 from django.utils.functional import cached_property
-from lizard_map.lizard_widgets import WorkspaceAcceptable
 
 
 logger = logging.getLogger(__name__)
@@ -72,19 +71,6 @@ class NetcdfFile(object):
                 logger.exception(msg)
                 continue  # Omit this parameter.
             result.append(dict(id=id, name=name, unit=unit))
-        return result
-
-    @cached_property
-    def workspace_acceptables(self):
-        """Return workspace acceptables for the user interface."""
-        result = []
-        for parameter in self.parameters:
-            adapter_layer_json = {'filename': os.path.basename(self.filename),
-                                  'parameter_id': parameter['id']}
-            result.append(WorkspaceAcceptable(
-                name=parameter['name'],
-                adapter_name='adapter_ocean',
-                adapter_layer_json=json.dumps(adapter_layer_json)))
         return result
 
     @cached_property
