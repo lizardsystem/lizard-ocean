@@ -9,8 +9,6 @@ from django.utils.functional import cached_property
 from django.conf import settings
 from django.http import Http404
 from lizard_map import coordinates
-from lizard_map.exceptions import WorkspaceItemError
-from lizard_map import workspace
 from lizard_map.adapter import FlotGraph, Graph
 from lizard_map.models import ICON_ORIGINALS
 from lizard_map.symbol_manager import SymbolManager

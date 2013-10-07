@@ -47,9 +47,5 @@ setup(name='lizard-ocean',
       entry_points={
           'console_scripts': [
           ],
-          'lizard_map.adapter_class': [
-              'adapter_ocean = lizard_ocean.layers:OceanPointAdapter',
-              'adapter_ocean_raster = lizard_ocean.layers:OceanRasterAdapter',
-          ],
       },
   )

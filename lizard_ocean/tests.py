@@ -15,7 +15,7 @@ from lizard_ocean import views
 class ConfTest(TestCase):
 
     def test_config_loaded(self):
-        self.assertTrue(hasattr(settings, 'OCEAN_RASTER_BASEDIR'))
+        self.assertTrue(hasattr(settings, 'OCEAN_BASEDIR'))
 
 
 class RasterTest(TestCase):
@@ -26,7 +26,7 @@ class RasterTest(TestCase):
         rasters = rasters()
         self.assertTrue('20130806' in rasters)
         self.assertEquals(rasters['20130806'],
-                          settings.OCEAN_RASTER_BASEDIR + '/test_20130806.png')
+                          settings.OCEAN_BASEDIR + '/test_20130806.png')
 
 
 class NetcdfTest(TestCase):
