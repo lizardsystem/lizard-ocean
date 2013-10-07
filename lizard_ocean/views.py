@@ -79,23 +79,49 @@ class RastersetInfoView(View):
         identifiers = request.GET.get('identifiers', '')
         identifiers = [identifier.strip() for identifier in identifiers.split(',')]
 
+        rasterset_info = []
+
         tree = ocean_data.get_data_tree(settings.OCEAN_BASEDIR)
+        node_dict = ocean_data.get_node_dict(tree)
         selected_nodes = ocean_data.filter_by_identifier(tree, identifiers)
         rastersets = ocean_data.filter_by_property(selected_nodes, 'is_rasterset')
-        rasterset_info = []
+
         for rasterset in rastersets:
             info = {
                 'name': rasterset['name'],
                 'identifier': rasterset['identifier'],
                 'children': [
                     {
-                        'name': item['name'],
-                        'identifier': item['identifier'],
+                        'name': raster['name'],
+                        'identifier': raster['identifier'],
                     }
-                    for item in rasterset['children']
+                    for raster in rasterset['children']
                 ],
             }
             rasterset_info.append(info)
+
+        # HACK: Trick to also pull in individual selected rasters.
+        rasters = ocean_data.filter_by_property(selected_nodes, 'is_raster')
+        for raster in rasters:
+            # Find out if rasterset is already present.
+            rasterset = None
+            for info in rasterset_info:
+                if info['identifier'] == raster['parent']:
+                    rasterset = info
+                    break
+            if not rasterset:
+                rasterset_node = node_dict[raster['parent']]
+                info = {
+                    'name': rasterset_node['name'],
+                    'identifier': rasterset_node['identifier'],
+                    'children': []
+                }
+                rasterset_info.append(info)
+                rasterset = info
+            rasterset['children'].append({
+                'name': raster['name'],
+                'identifier': raster['identifier'],
+            })
 
         response = HttpResponse(json.dumps(rasterset_info), content_type='application/json')
         return response

@@ -128,6 +128,18 @@
         }
     });
 
+    function array_diff (a1, a2) {
+      var a=[], diff=[];
+      for(var i=0;i<a1.length;i++)
+        a[a1[i]]=true;
+      for(var i=0;i<a2.length;i++)
+        if(a[a2[i]]) delete a[a2[i]];
+        else a[a2[i]]=true;
+      for(var k in a)
+        diff.push(k);
+      return diff;
+    }
+
     /* ******************************************************************** */
     /* ******************************************************************** */
     /* ******************************************************************** */
@@ -174,17 +186,34 @@
         // Iterate through all layers, and remove the ones that aren't
         // present in the selected frames anymore.
 
-        // Find out what is missing, and what is new. We don't deal with updates.
+        // Find out what is missing, and what is new.
+        // Note: We don't deal with updates.
         var toAdd = [];
         var toRemove = [];
         $.each(frames, function (frameSetId, frameSetFrames) {
             if (!(frameSetId in newFrames)) {
                 toRemove.push(frameSetId);
             }
+            else {
+                if (newFrames[frameSetId].length !== frameSetFrames.length) {
+                    toRemove.push(frameSetId);
+                }
+                else {
+                    // Note: should really diff frame identifiers here.
+                }
+            }
         });
         $.each(newFrames, function (frameSetId, frameSetFrames) {
             if (!(frameSetId in frames)) {
                 toAdd.push(frameSetId);
+            }
+            else {
+                if (frames[frameSetId].length !== frameSetFrames.length) {
+                    toAdd.push(frameSetId);
+                }
+                else {
+                    // Note: should really diff frame identifiers here.
+                }
             }
         });
 
