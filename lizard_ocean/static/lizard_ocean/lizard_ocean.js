@@ -582,3 +582,98 @@
     // force i18n to english
     moment.lang('en');
 })();
+
+(function () {
+    // function getEndpoints (nodes) {
+        // var endpoints = {
+            // rastersetItems: [],
+            // rastersets: [],
+            // netcdfParameters: [],
+            // netcdfs: []
+        // };
+// 
+        // $.each(nodes, function () {
+            // var node = this;
+            // if (node.data.isRastersetItem) {
+                // endpoints.rastersetItems.push(node.data.identifier);
+            // }
+            // else if (node.data.isRasterset) {
+                // endpoints.rastersets.push(node.data.identifier);
+            // }
+            // else if (node.data.isNetcdfParameter) {
+                // endpoints.netcdfParameters.push(node.data.identifier);
+            // }
+            // else if (node.data.isNetcdf) {
+                // endpoints.netcdfs.push(node.data.identifier);
+            // }
+            // else if (node.data.isFolder) {
+                // // add children
+                // var subendpoints = getEndpoints(node.children);
+                // $.merge(endpoints.rastersetItems, subendpoints.rastersetItems);
+                // $.merge(endpoints.rastersets, subendpoints.rastersets);
+                // $.merge(endpoints.netcdfParameters, subendpoints.netcdfParameters);
+                // $.merge(endpoints.netcdfs, subendpoints.netcdfs);
+            // }
+        // });
+// 
+        // return endpoints;
+    // }
+
+    function getIdentifiers (nodes) {
+        var identifiers = [];
+        $.each(nodes, function () {
+            var node = this;
+            identifiers.push(node.data.identifier);
+        });
+        return identifiers;
+    }
+
+    $(document).ready(function () {
+        var netcdfLayer = new OpenLayers.Layer.WMS('netcdf', '/ocean/ejwms/',
+        {
+            layers: [],
+            format: 'image/png'
+        },
+        {
+            isBaseLayer: false,
+            singleTile: true,
+            displayInLayerSwitcher: false
+        });
+        map.addLayer(netcdfLayer);
+        netcdfLayer.setZIndex(1000);
+
+        $("#ocean-tree").fancytree({
+            source: treeData,
+            checkbox: true,
+            selectMode: 3,
+            debugLevel: 0,
+            click: function(e, data) {
+                // Toggle node when clicked on the title.
+                if (e && e.originalEvent && e.originalEvent.target) {
+                    var $target = $(e.originalEvent.target);
+                    if ($target.hasClass('fancytree-title')) {
+                        data.node.toggleSelected();
+                    }
+                }
+            },
+            select: function(event, data) {
+                var nodes = data.tree.getSelectedNodes(true);
+                // var endpoints = getEndpoints(nodes);
+                // console.log('rastersetitems ', endpoints.rastersetItems);
+                // console.log('rastersets ', endpoints.rastersets);
+                // console.log('netcdfparameters ', endpoints.netcdfParameters);
+                // console.log('netcdfs ', endpoints.netcdfs);
+
+                var identifiers = getIdentifiers(nodes);
+                console.log('identifiers ', identifiers);
+                netcdfLayer.mergeNewParams({
+                    layers: identifiers
+                });
+                // netcdfLayer.mergeNewParams({
+                    // layers: $.merge($.merge([], endpoints.netcdfParameters), endpoints.netcdfs)
+                // });
+                netcdfLayer.redraw(true);
+            }
+        });
+    });
+})();

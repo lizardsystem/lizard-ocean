@@ -38,37 +38,62 @@ def get_pointsymbolizer_args(path, format='png', width=16, height=16):
         return (mapnik.PathExpression(path),)
     return (path, format, width, height)
 
+def distance(x1, y1, x2, y2):
+    return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
-class OceanPointAdapter(workspace.WorkspaceItemAdapter):
-    # Note: bit of copy/paste from lizard-fewsjdbc's adapter.
+class FilteredOceanAdapter(object):
+    def __init__(self, locations):
+        self.locations = locations
 
-    def __init__(self, *args, **kwargs):
-        super(OceanPointAdapter, self).__init__(*args, **kwargs)
-        if not 'filename' in self.layer_arguments:
-            raise WorkspaceItemError("Key 'filename' not found")
-        self.filename = os.path.join(settings.OCEAN_NETCDF_BASEDIR, 
-                                     self.layer_arguments['filename'])
-        self.parameter_id = self.layer_arguments['parameter_id']
-        self.parameter_name = ''
-        self.parameter_unit = ''
-        for parameter in self.netcdf_file.parameters:
-            if parameter['id'] == self.parameter_id:
-                self.parameter_unit= parameter['unit']
-                self.parameter_name= parameter['name']
+    def point_layer(self):
+        styles = {}
+        layer = mapnik.Layer("OCEAN points layer", coordinates.WGS84)
 
-    @cached_property
-    def netcdf_file(self):
-        return netcdf.NetcdfFile(self.filename)
+        layer.datasource = mapnik.MemoryDatasource()
+        context = mapnik.Context()
+        for i, location in enumerate(self.locations):
+            f = mapnik.Feature(context, i)
+            f['Name'] = str(location['name'])
+            # TODO: might want to use something like this, instead of WKT. But how?
+            #f.add_geometry(Point(station['x'], station['y']))
+            f.add_geometries_from_wkt('POINT({} {})'.format(location['location_x'], location['location_y']))
+            layer.datasource.add_feature(f)
 
-    @property
-    def _stations(self):
-        return self.netcdf_file.stations
+        # generate "unique" point style name and append to layer
+        style_name = "ocean"
+        styles[style_name] = self._point_style()
+        layer.styles.append(style_name)
 
-    def style(self):
-        """Return mapnik point style.
+        layers = [layer, ]
+        return layers, styles
 
-        (Copy/pasted from lizard-sticky).
+    def search(self, google_x, google_y, radius=None):
+        """Return list of dict {'distance': <float>, 'timeserie':
+        <timeserie>} of closest points that match x, y, radius.
+
         """
+        result = []
+        for location in self.locations:
+            x, y = coordinates.wgs84_to_google(
+                location['location_x'],
+                location['location_y'])
+            dist = distance(google_x, google_y, x, y)
+            if dist < radius:
+                result.append(
+                    {'distance': dist,
+                     'name': location['name'],
+                     'shortname': location['name'],
+                     'identifier': {'station_id': location['location_id']},
+                     'google_coords': (x, y),
+                     'object': None})
+        result.sort(key=lambda item: item['distance'])
+        if result:
+            return result[:1]
+        else:
+            return []
+
+    # @ cached
+    def _point_style(self):
         symbol_manager = SymbolManager(
             ICON_ORIGINALS,
             os.path.join(settings.MEDIA_ROOT, 'generated_icons'))
@@ -84,6 +109,132 @@ class OceanPointAdapter(workspace.WorkspaceItemAdapter):
         point_style = mapnik.Style()
         point_style.rules.append(layout_rule)
         return point_style
+'''
+class FilteredOceanAdapterOld(object):
+    def __init__(self, filename_parameter_map={}):
+        self.filename_parameter_map = filename_parameter_map
+
+    def point_layer(self, station_ids=[]):
+        styles = {}
+        layer = mapnik.Layer("OCEAN points layer", coordinates.WGS84)
+
+        layer.datasource = mapnik.MemoryDatasource()
+        context = mapnik.Context()
+        for i, station in enumerate(self._stations()):
+            f = mapnik.Feature(context, i)
+            f['Name'] = str(station['name'])
+            # TODO: might want to use something like this, instead of WKT. But how?
+            #f.add_geometry(Point(station['x'], station['y']))
+            f.add_geometries_from_wkt('POINT({} {})'.format(station['x'], station['y']))
+            layer.datasource.add_feature(f)
+
+        # generate "unique" point style name and append to layer
+        style_name = "ocean"
+        styles[style_name] = self._point_style()
+        layer.styles.append(style_name)
+
+        layers = [layer, ]
+        return layers, styles
+
+    def search(self, google_x, google_y, radius=None):
+        """Return list of dict {'distance': <float>, 'timeserie':
+        <timeserie>} of closest points that match x, y, radius.
+
+        """
+        result = []
+        for station in self._stations():
+            x, y = coordinates.wgs84_to_google(
+                station['x'],
+                station['y'])
+            dist = distance(google_x, google_y, x, y)
+            if dist < radius:
+                result.append(
+                    {'distance': dist,
+                     'name': station['name'],
+                     'shortname': station['name'],
+                     'identifier': {'station_id': station['id']},
+                     'google_coords': (x, y),
+                     'object': None})
+        result.sort(key=lambda item: item['distance'])
+        if result:
+            return result[:1]
+        else:
+            return []
+
+    def search_station(self, station_id):
+        for station in self._stations():
+            if station['id'] == station_id:
+                return {
+                    'name': station['name'],
+                    'shortname': station['name'],
+                    'identifier': {'station_id': station['id']},
+                    'google_coords': coordinates.wgs84_to_google(station['x'], station['y']),
+                    'object': station
+                }
+
+    # @ cached
+    def _point_style(self):
+        symbol_manager = SymbolManager(
+            ICON_ORIGINALS,
+            os.path.join(settings.MEDIA_ROOT, 'generated_icons'))
+        output_filename = symbol_manager.get_symbol_transformed(
+            ICON_STYLE['icon'], **ICON_STYLE)
+        output_filename_abs = os.path.join(
+            settings.MEDIA_ROOT, 'generated_icons', output_filename)
+        # use filename in mapnik pointsymbolizer
+        point_looks = mapnik.PointSymbolizer(*get_pointsymbolizer_args(output_filename_abs))
+        point_looks.allow_overlap = True
+        layout_rule = mapnik.Rule()
+        layout_rule.symbols.append(point_looks)
+        point_style = mapnik.Style()
+        point_style.rules.append(layout_rule)
+        return point_style
+
+    def _stations(self):
+        for netcdf_file, netcdf_filter in self._netcdf_files():
+            stations = netcdf_file.stations
+            if netcdf_filter['station_ids']:
+                # Filter stations by ID.
+                stations = filter(lambda station: station['id'] in netcdf_filter['station_ids'], stations)
+            for station in stations:
+                yield station
+
+    def _netcdf_files(self):
+        return [
+            (self._netcdf_file(filename), netcdf_filter)
+            for filename, netcdf_filter
+            in self.filename_parameter_map.items()
+        ]
+
+    # @ cached!
+    def _netcdf_file(self, filename):
+        netcdf_file = netcdf.NetcdfFile(filename)
+        return netcdf_file
+'''
+class OceanPointAdapter(workspace.WorkspaceItemAdapter):
+    # Note: bit of copy/paste from lizard-fewsjdbc's adapter.
+
+    def __init__(self, *args, **kwargs):
+        #import pdb; pdb.set_trace()
+        super(OceanPointAdapter, self).__init__(*args, **kwargs)
+        if not 'filename' in self.layer_arguments:
+            raise WorkspaceItemError("Key 'filename' not found")
+        self.filename = os.path.join(settings.OCEAN_NETCDF_BASEDIR, 
+                                     self.layer_arguments['filename'])
+        self.parameter_id = self.layer_arguments['parameter_id']
+        #self.parameter_name = ''
+        #self.parameter_unit = ''
+        #for parameter in self.netcdf_file.parameters:
+        #    if parameter['id'] == self.parameter_id:
+        #        self.parameter_unit= parameter['unit']
+        #        self.parameter_name= parameter['name']
+        filename_parameter_map = {
+            self.filename: {
+                'station_ids': [],
+                'parameter_ids': [self.parameter_id],
+            }
+        }
+        self.filtered_adapter = FilteredOceanAdapter(filename_parameter_map)
 
     def symbol_url(self, identifier=None, start_date=None, end_date=None,
                    icon_style=None):
@@ -101,70 +252,24 @@ class OceanPointAdapter(workspace.WorkspaceItemAdapter):
         """Return layer and styles that render points.
 
         """
-        layers = []
-        styles = {}
-        layer = mapnik.Layer("OCEAN points layer", coordinates.WGS84)
-
-        layer.datasource = mapnik.MemoryDatasource()
-        context = mapnik.Context()
-        for i, station in enumerate(self._stations):
-            f = mapnik.Feature(context, i)
-            f['Name'] = str(station['name'])
-            # TODO: might want to use something like this, instead of WKT. But how?
-            #f.add_geometry(Point(station['x'], station['y']))
-            f.add_geometries_from_wkt('POINT({} {})'.format(station['x'], station['y']))
-            layer.datasource.add_feature(f)
-
-        # generate "unique" point style name and append to layer
-        style_name = "ocean"
-        styles[style_name] = self.style()
-        layer.styles.append(style_name)
-
-        layers = [layer, ]
-        return layers, styles
+        return self.filtered_adapter.point_layer()
 
     def search(self, google_x, google_y, radius=None):
         """Return list of dict {'distance': <float>, 'timeserie':
         <timeserie>} of closest points that match x, y, radius.
 
         """
-        def distance(x1, y1, x2, y2):
-            return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-
-        result = []
-        for station in self._stations:
-            x, y = coordinates.wgs84_to_google(
-                station['x'],
-                station['y'])
-            dist = distance(google_x, google_y, x, y)
-            if dist < radius:
-                result.append(
-                    {'distance': dist,
-                     'name': station['name'],
-                     'shortname': station['name'],
-                     'workspace_item': self.workspace_item,
-                     'identifier': {'station_id': station['id']},
-                     'google_coords': (x, y),
-                     'object': None})
-        result.sort(key=lambda item: item['distance'])
-        max_results = 3
-        return result[:max_results]
+        results = self.filtered_adapter.search(google_x, google_y, radius)
+        for result in results:
+            result.update({'workspace_item': self.workspace_item})
+        return results
 
     def location(self, station_id, layout=None):
         """Return location dict.
         """
-        for station in self._stations:
-            if station['id'] == station_id:
-                identifier = {'station_id': station_id}
-                return {
-                    'name': station['name'],
-                    'shortname': station['name'],
-                    'workspace_item': self.workspace_item,
-                    'identifier': identifier,
-                    'google_coords': coordinates.wgs84_to_google(
-                        station['x'], station['y']),
-                    'object': station,
-                }
+        result = self.filtered_adapter.search_station(station_id)
+        result.update({'workspace_item': self.workspace_item})
+        return result
 
     def html(self, *args, **kwargs):
         return super(OceanPointAdapter, self).html_default(*args, **kwargs)

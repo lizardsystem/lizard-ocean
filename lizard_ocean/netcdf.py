@@ -30,7 +30,7 @@ class NetcdfFile(object):
 
     def __init__(self, filename):
         self.filename = filename
-        self.dataset = Dataset(filename)
+        self.dataset = Dataset(filename, mode='r')
         self.metadata_keys = ['x', 'y', 'id', 'name']
 
     @cached_property
@@ -59,10 +59,9 @@ class NetcdfFile(object):
         others are parameters we want to see graphs for.
         """
         result = []
-        known_variables = ['x', 'y', 'time', 'lat', 'lon',
-                           'station_id', 'station_names', 'crs', 'analysis_time']
         for id, variable in self.dataset.variables.items():
-            if id in known_variables:
+            is_mappable_variable = 'time' in variable.dimensions and 'stations' in variable.dimensions
+            if not is_mappable_variable:
                 continue
             try:
                 name = variable.long_name
@@ -104,8 +103,7 @@ class NetcdfFile(object):
 
     def values(self, parameter_id, station_index):
         """Return all values for the parameter."""
-        # Note: ``slice(None)`` is the same as ``:``.
-        return self.dataset.variables[parameter_id][slice(None), station_index]
+        return self.dataset.variables[parameter_id][:, station_index]
 
     def time_value_pairs(self, parameter_id, station_index):
         """Return pairs of time/value. 
@@ -117,3 +115,6 @@ class NetcdfFile(object):
         """
         pairs = zip(self.timestamps, self.values(parameter_id, station_index))
         return [(timestamp, float(value)) for timestamp, value in pairs if value]
+
+    def close(self):
+        self.dataset.close()
