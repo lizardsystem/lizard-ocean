@@ -100,11 +100,13 @@ class RastersetInfoView(View):
             }
             rasterset_info.append(info)
 
+        rasterset_identifiers = [rasterset['identifier'] for rasterset in rastersets]
+
         # HACK: Trick to also pull in individual selected rasters.
         rasters = ocean_data.filter_by_property(selected_nodes, 'is_raster')
         for raster in rasters:
             # Skip rasters which already have been added as part of a rasterset.
-            if raster['parent'] in identifiers:
+            if raster['parent'] in rasterset_identifiers:
                 continue
             # Find out if rasterset is already present.
             rasterset = None
