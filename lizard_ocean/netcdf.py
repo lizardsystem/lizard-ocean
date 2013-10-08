@@ -18,9 +18,9 @@ logger = logging.getLogger(__name__)
 
 
 def netcdf_filepaths():
-    files = [f for f in os.listdir(settings.OCEAN_NETCDF_BASEDIR)
+    files = [f for f in os.listdir(settings.OCEAN_BASEDIR)
              if f.endswith('.nc')]
-    return sorted([os.path.join(settings.OCEAN_NETCDF_BASEDIR, f) 
+    return sorted([os.path.join(settings.OCEAN_BASEDIR, f)
                    for f in files])
 
 

@@ -19,14 +19,7 @@ class ConfTest(TestCase):
 
 
 class RasterTest(TestCase):
-
-    def test_rasters(self):
-        from lizard_ocean.raster import rasters
-
-        rasters = rasters()
-        self.assertTrue('20130806' in rasters)
-        self.assertEquals(rasters['20130806'],
-                          settings.OCEAN_BASEDIR + '/test_20130806.png')
+    pass
 
 
 class NetcdfTest(TestCase):
@@ -38,7 +31,7 @@ class NetcdfTest(TestCase):
 class NetcdfFileTest(TestCase):
 
     def setUp(self):
-        filename = os.path.join(settings.OCEAN_NETCDF_BASEDIR, 
+        filename = os.path.join(settings.OCEAN_BASEDIR,
                                 'Phase_One_dummy.nc')
         self.netcdf_file = netcdf.NetcdfFile(filename)
 
@@ -66,10 +59,6 @@ class NetcdfFileTest(TestCase):
     def test_parameters2(self):
         parameter = self.netcdf_file.parameters[0]
         self.assertEquals(parameter['unit'], 'm')
-
-    def test_workspace_acceptables(self):
-        acceptables = self.netcdf_file.workspace_acceptables
-        self.assertEquals(acceptables[0].adapter_name, 'adapter_ocean')
 
     def test_workspace_timestamps(self):
         timestamps = self.netcdf_file.timestamps

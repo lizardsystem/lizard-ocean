@@ -38,6 +38,7 @@
         cssVisibility: true,
         isAnimated: true,
         frameIndex: null,
+        frameId: null,
         frameLabel: '',
 
         initialize: function (name, url, params, options) {
@@ -47,6 +48,9 @@
                 this.cssVisibility = options.cssVisibility;
             }
             this.frameIndex = options.frameIndex;
+            if (options.frameId) {
+                this.frameId = options.frameId;
+            }
             if (options.frameLabel) {
                 this.frameLabel = options.frameLabel;
             }
@@ -85,6 +89,7 @@
         cssVisibility: true,
         isAnimated: true,
         frameIndex: null,
+        frameId: null,
         frameLabel: '',
 
         initialize: function (name, url, extent, size, options) {
@@ -94,6 +99,9 @@
                 this.cssVisibility = options.cssVisibility;
             }
             this.frameIndex = options.frameIndex;
+            if (options.frameId) {
+                this.frameId = options.frameId;
+            }
             if (options.frameLabel) {
                 this.frameLabel = options.frameLabel;
             }
@@ -128,16 +136,22 @@
         }
     });
 
-    function array_diff (a1, a2) {
-      var a=[], diff=[];
-      for(var i=0;i<a1.length;i++)
-        a[a1[i]]=true;
-      for(var i=0;i<a2.length;i++)
-        if(a[a2[i]]) delete a[a2[i]];
-        else a[a2[i]]=true;
-      for(var k in a)
-        diff.push(k);
-      return diff;
+    function setSubtract (a1, a2) {
+      return $.grep(a1, function (v) {
+          return $.inArray(v, a2) === -1;
+      });
+    }
+
+    function getPropertyForAll (property, array) {
+        return $.map(array, function (v) {
+            return v[property];
+        });
+    }
+
+    function getKeys (array) {
+        return $.map(array, function (v, k) {
+            return k;
+        });
     }
 
     /* ******************************************************************** */
@@ -188,31 +202,29 @@
 
         // Find out what is missing, and what is new.
         // Note: We don't deal with updates.
-        var toAdd = [];
-        var toRemove = [];
+        var toAdd = setSubtract(getKeys(newFrames), getKeys(frames));
+        var toRemove = setSubtract(getKeys(frames), getKeys(newFrames));
+        var toUpdate = [];
+        console.log('toAdd ', toAdd);
+        console.log('toRemove ', toRemove);
         $.each(frames, function (frameSetId, frameSetFrames) {
-            if (!(frameSetId in newFrames)) {
-                toRemove.push(frameSetId);
-            }
-            else {
-                if (newFrames[frameSetId].length !== frameSetFrames.length) {
-                    toRemove.push(frameSetId);
-                }
-                else {
-                    // Note: should really diff frame identifiers here.
-                }
-            }
-        });
-        $.each(newFrames, function (frameSetId, frameSetFrames) {
-            if (!(frameSetId in frames)) {
-                toAdd.push(frameSetId);
-            }
-            else {
-                if (frames[frameSetId].length !== frameSetFrames.length) {
+            if (frameSetId in newFrames) {
+                var currentFrameSetIdentifiers = getPropertyForAll('frameId', frameSetFrames);
+                var newFrameSetIdentifiers = getPropertyForAll('frameId', newFrames[frameSetId]);
+                console.log('currentFrameSetIdentifiers ', currentFrameSetIdentifiers);
+                console.log('newFrameSetIdentifiers ', newFrameSetIdentifiers);
+                var toAddInThisSet = setSubtract(newFrameSetIdentifiers, currentFrameSetIdentifiers);
+                var toRemoveInThisSet = setSubtract(currentFrameSetIdentifiers, newFrameSetIdentifiers);
+                if (toAddInThisSet.length > 0 || toRemoveInThisSet.length > 0) {
+                    console.log('toAddInThisSet ', toAddInThisSet);
+                    console.log('toRemoveInThisSet ', toRemoveInThisSet);
+                    toUpdate.push({
+                        frameSetId: frameSetId,
+                        toAdd: toAddInThisSet,
+                        toRemove: toRemoveInThisSet
+                    });
                     toAdd.push(frameSetId);
-                }
-                else {
-                    // Note: should really diff frame identifiers here.
+                    toRemove.push(frameSetId);
                 }
             }
         });
@@ -361,7 +373,7 @@
     }
 
     function createFrame (rastersetId, rastersetName, frameId, frameName, frameIndex) {
-        var name = frameId;
+        var name = rastersetName + ' ' + frameName;
 
         var wmsUrl = '/ocean/ejwms/';
         var wmsParams = $.extend({}, {
@@ -392,8 +404,9 @@
                     onLayerLoadingChange();
                 }
             },
-            projection: 'EPSG:900913',
+            projection: 'EPSG:3857',
             frameIndex: frameIndex,
+            frameId: frameId,
             frameLabel: frameLabel
         });
 
@@ -657,8 +670,8 @@
                 var rastersetInfo = data;
                 refreshAnimatedLayers(rastersetInfo);
             })
-            .fail(function (data) {
-                console.log('getRastersetInfo fail');
+            .fail(function () {
+                console.error('getRastersetInfo error');
             })
             .always(function () {
                 refreshRastersetsDeferred = null;
@@ -672,7 +685,7 @@
             refreshRastersetsTimeout = window.setTimeout(function () {
                 refreshRastersetsTimeout = null;
                 getRastersetInfo(identifiers);
-            }, 200);
+            }, 300);
         }
 
         // Initialize the tree.
