@@ -14,6 +14,7 @@ from collections import namedtuple
 import cPickle as pickle
 
 from recordtype import recordtype
+from django.conf import settings
 from django.core.cache import cache
 
 from lizard_ocean import netcdf
@@ -22,13 +23,6 @@ from lizard_ocean import raster
 logger = logging.getLogger(__name__)
 
 Node = recordtype('Node', """
-    path, identifier, name, children, parent,
-    is_rasterset, is_raster, is_netcdf,
-    is_parameter, parameter_id,
-    is_location, location_id, location_x, location_y, location_index
-""")
-
-NodeOld = namedtuple('Node2', """
     path, identifier, name, children, parent,
     is_rasterset, is_raster, is_netcdf,
     is_parameter, parameter_id,
@@ -168,3 +162,33 @@ def filter_by_property(nodes, property):
         if node.children:
             result += filter_by_property(node.children, property)
     return result
+
+class Tree(object):
+    def __init__(self, dir=None):
+        if dir is None:
+            dir = settings.OCEAN_BASEDIR
+
+        self.tree = get_data_tree(settings.OCEAN_BASEDIR)
+        self.node_dict = get_node_dict(self.tree)
+
+    def filter_by_identifier(self, identifiers):
+        return NodeList(self.tree[:]).filter_by_identifier(identifiers)
+
+    def filter_by_property(self, property):
+        return NodeList(self.tree[:]).filter_by_property(property)
+
+    def get(self):
+        return self.tree
+
+class NodeList(object):
+    def __init__(self, nodes):
+        self.nodes = nodes
+
+    def filter_by_identifier(self, identifiers):
+        return NodeList(filter_by_identifier(self.nodes, identifiers))
+
+    def filter_by_property(self, property):
+        return NodeList(filter_by_property(self.nodes, property))
+
+    def get(self):
+        return self.nodes

@@ -49,7 +49,7 @@ class FilteredOceanAdapter(object):
         styles = {}
 
         # Draw locations to a single fixed layer.
-        locations = [node for node in self.nodes if node.is_location]
+        locations = self.nodes.filter_by_property('is_location').get()
         if locations:
             point_layer = mapnik.Layer(b'ocean locations', coordinates.WGS84)
             point_layer.datasource = mapnik.MemoryDatasource()
@@ -66,10 +66,11 @@ class FilteredOceanAdapter(object):
                 #f.add_geometry(Point(station['x'], station['y']))
                 f.add_geometries_from_wkt('POINT({} {})'.format(location.location_x, location.location_y))
                 point_layer.datasource.add_feature(f)
-    
+
             layers.append(point_layer)
 
-        rasters = [node for node in self.nodes if node.is_raster]
+        # Draw a raster layer.
+        rasters = self.nodes.filter_by_property('is_raster').get()
         if rasters:
             s_name_2 = b'ocean_raster_style'
             styles[s_name_2] = self._get_raster_style()
@@ -105,7 +106,8 @@ class FilteredOceanAdapter(object):
         radius = icon_radius_px * resolution
 
         result = []
-        for location in self.nodes:
+        locations = self.nodes.filter_by_property('is_location').get()
+        for location in locations:
             point2 = Point((location.location_x, location.location_y), srid=source_srid)
             distance = point.distance(point2)
             if distance < radius:
@@ -142,6 +144,84 @@ class FilteredOceanAdapter(object):
         r.symbols.append(rs)
         s.rules.append(r)
         return s
+
+    def flot_graph_data(self, start_date, end_date, layout_extra=None, raise_404_if_empty=False):
+        return self._render_graph(start_date, end_date, layout_extra=layout_extra, raise_404_if_empty=raise_404_if_empty, GraphClass=FlotGraph)
+
+    def image(self, start_date, end_date, width=380.0, height=250.0, layout_extra=None, raise_404_if_empty=False):
+        return self._render_graph(start_date, end_date, width=width, height=height, layout_extra=layout_extra, raise_404_if_empty=raise_404_if_empty, GraphClass=Graph)
+
+    def _render_graph(self, start_date, end_date, layout_extra=None, raise_404_if_empty=False, GraphClass=FlotGraph, **extra_params):
+        today = datetime.datetime.now()
+        graph = GraphClass(start_date, end_date, today=today, tz=pytz.timezone(settings.TIME_ZONE), **extra_params)
+        graph.axes.grid(True)
+        parameter_id = 'H_simulated'
+        graph.axes.set_ylabel('{} ({})'.format(parameter_name, parameter_unit))
+
+        title = None
+        y_min, y_max = None, None
+
+        is_empty = True
+        locations = self.nodes.filter_by_property('is_location').get()
+        for i, location in enumerate(locations):
+            if i == 0:
+                # Use parameter name of the first location.
+                parameter_name = "FIXME"
+                parameter_unit = "FIXME"
+
+            netcdf_path = node.path
+            netcdf_file = netcdf.NetcdfFile(netcdf_path)
+            # Plot data if available.
+            pairs = netcdf_file.time_value_pairs(parameter_id, location.location_index)
+            pairs = [(date, value) for date, value in pairs if start_date < date < end_date]
+            dates = [date for date, value in pairs]
+            values = [value for date, value in pairs]
+            if values:
+                graph.axes.plot(dates, values, lw=1, label=location.name)
+
+        if is_empty and raise_404_if_empty:
+            raise Http404
+
+        # Originally legend was only turned on if layout.get('legend')
+        # was true. However, as far as I can see there is no way for
+        # that to become set anymore. Since a legend should always be
+        # drawn, we simply put the following:
+        graph.legend()
+
+        # If there is data, don't draw a frame around the legend
+        if graph.axes.legend_ is not None:
+            graph.axes.legend_.draw_frame(False)
+        else:
+            # TODO: If there isn't, draw a message. Give a hint that
+            # using another time period might help.
+            pass
+
+        # Extra layout parameters. From lizard-fewsunblobbed.
+        y_min_manual = y_min is not None
+        y_max_manual = y_max is not None
+        if y_min is None:
+            y_min, ignored = graph.axes.get_ylim()
+        if y_max is None:
+            ignored, y_max = graph.axes.get_ylim()
+
+        if title:
+            graph.suptitle(title)
+
+        graph.set_ylim(y_min, y_max, y_min_manual, y_max_manual)
+
+        graph.add_today()
+        return graph.render()
+
+    def values(self, start_date, end_date):
+        station_index = location['object']['station_index']
+        # Plot data if available.
+        pairs = self.netcdf_file.time_value_pairs(self.parameter_id, station_index)
+        pairs = [(date, value) for date, value in pairs
+                 if start_date < date < end_date]
+        return [{'value': value,
+                 'datetime': date,
+                 'unit': self.parameter_unit}
+                for date, value in pairs]
 
 '''
 class OceanPointAdapter(workspace.WorkspaceItemAdapter):

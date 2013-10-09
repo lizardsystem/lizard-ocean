@@ -13,6 +13,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 def cached_instance_method(seconds=300, ignore_cache=False):
+    '''Dont use'''
     def outer_wrapper(f):
         @wraps(f)
         def wrapper(*args, **kwargs):

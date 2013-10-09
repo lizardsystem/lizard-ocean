@@ -56,14 +56,16 @@ class WmsView(View):
         map = mapnik.Map(width, height)
         map.srs = coordinates.srs_to_mapnik_projection[srs]
         map.background = mapnik.Color(b'transparent')
-        tree = ocean_data.get_data_tree(settings.OCEAN_BASEDIR)
+        tree = ocean_data.Tree()
 
-        selected_nodes = ocean_data.filter_by_identifier(tree, layers)
+        selected_nodes = tree.filter_by_identifier(layers)
         if filter_by_type == 'locations':
-            selected_nodes = ocean_data.filter_by_property(selected_nodes, 'is_location')
+            filtered_nodes = selected_nodes.filter_by_property('is_location')
         elif filter_by_type == 'rasters':
-            selected_nodes = ocean_data.filter_by_property(selected_nodes, 'is_raster')
-        adapter = FilteredOceanAdapter(selected_nodes)
+            filtered_nodes = selected_nodes.filter_by_property('is_raster')
+        else:
+            filtered_nodes = selected_nodes
+        adapter = FilteredOceanAdapter(filtered_nodes)
 
         layers, styles = adapter.layers()
         for layer in layers:
@@ -84,10 +86,9 @@ class RastersetInfoView(View):
 
         rasterset_info = []
 
-        tree = ocean_data.get_data_tree(settings.OCEAN_BASEDIR)
-        node_dict = ocean_data.get_node_dict(tree)
-        selected_nodes = ocean_data.filter_by_identifier(tree, identifiers)
-        rastersets = ocean_data.filter_by_property(selected_nodes, 'is_rasterset')
+        tree = ocean_data.Tree()
+        selected_nodes = tree.filter_by_identifier(identifiers)
+        rastersets = selected_nodes.filter_by_property('is_rasterset').get()
 
         for rasterset in rastersets:
             info = {
@@ -106,7 +107,7 @@ class RastersetInfoView(View):
         rasterset_identifiers = [rasterset.identifier for rasterset in rastersets]
 
         # HACK: Trick to also pull in individual selected rasters.
-        rasters = ocean_data.filter_by_property(selected_nodes, 'is_raster')
+        rasters = selected_nodes.filter_by_property('is_raster').get()
         for raster in rasters:
             # Skip rasters which already have been added as part of a rasterset.
             if raster.parent in rasterset_identifiers:
@@ -118,7 +119,7 @@ class RastersetInfoView(View):
                     rasterset = info
                     break
             if not rasterset:
-                rasterset_node = node_dict[raster.parent]
+                rasterset_node = tree.node_dict[raster.parent]
                 info = {
                     'name': rasterset_node.name,
                     'identifier': rasterset_node.identifier,
@@ -152,13 +153,12 @@ class MapClickView(View):
         x = request.GET.get('x')
         y = request.GET.get('y')
 
-        tree = ocean_data.get_data_tree(settings.OCEAN_BASEDIR)
-        selected_nodes = ocean_data.filter_by_identifier(tree, identifiers)
-        locations = ocean_data.filter_by_property(selected_nodes, 'is_location')
+        tree = ocean_data.Tree()
+        selected_nodes = tree.filter_by_identifier(identifiers)
 
         point = Point((lon, lat), srid=srid)
 
-        adapter = FilteredOceanAdapter(locations)
+        adapter = FilteredOceanAdapter(selected_nodes)
         found_location = adapter.search(point, srid=srid, bbox=bbox, width=width, height=height, resolution=resolution)
         if not found_location:
             raise Http404
@@ -187,7 +187,8 @@ class MainView(MapView):
     @cached_property
     def tree_json(self):
         try:
-            tree = ocean_data.to_fancytree(ocean_data.get_data_tree(settings.OCEAN_BASEDIR))
+            tree = ocean_data.Tree()
+            tree = ocean_data.to_fancytree(tree.get())
         except Exception as ex:
             raise Exception(ex)
         return json.dumps(tree)
