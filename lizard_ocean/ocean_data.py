@@ -56,7 +56,7 @@ def get_netcdf_parameters_as_nodes(netcdf_path, parent_node):
 
         children = []
         for station in stations:
-            child_path = '{}/{}'.format(path, station['id'])
+            child_path = '{}/{}/{}'.format(path, parameter['id'], station['id'])
             child_node = make_node(child_path, station['name'], node)
             child_node.is_location = True
             child_node.location_id = station['id']

@@ -34,13 +34,11 @@ class NetcdfFile(object):
         self.path = path
         self.dataset = Dataset(path, mode='r')
 
-    @cached_property
-    def cache_key(self):
-        mtime = os.path.getmtime(self.path)
-        cache_key = '{}:{}'.format(self.path, mtime)
-        return cache_key
+#     def file_cache_key(self):
+#         mtime = os.path.getmtime(self.path)
+#         cache_key = '{}:{}'.format(self.path, mtime)
+#         return cache_key
 
-    @cached_instance_method(60*60*24)
     def stations(self):
         """Return station metadata, i.e. everything apart from timeseries."""
         xs = [float(x) for x in self.dataset.variables['x']]
@@ -58,7 +56,6 @@ class NetcdfFile(object):
             result.append(station)
         return result
 
-    @cached_instance_method(60*60*24)
     def parameters(self):
         """Return id/name/unit dicts of the available parameters.
 
@@ -81,7 +78,6 @@ class NetcdfFile(object):
             result.append(dict(id=id, name=name, unit=unit))
         return result
 
-    @cached_property
     def timestamps(self):
         """Return python datetime values for all times in the dataset.
 
@@ -107,7 +103,7 @@ class NetcdfFile(object):
 
         Filter out time/value pairs if the value is NotANumber.
         """
-        pairs = zip(self.timestamps, self.values(parameter_id, station_index))
+        pairs = zip(self.timestamps(), self.values(parameter_id, station_index))
         return [(timestamp, float(value)) for timestamp, value in pairs if value]
 
     def close(self):
