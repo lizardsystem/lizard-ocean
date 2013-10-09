@@ -49,7 +49,7 @@ class FilteredOceanAdapter(object):
         styles = {}
 
         # Draw locations to a single fixed layer.
-        locations = [node for node in self.nodes if node['is_location']]
+        locations = [node for node in self.nodes if node.is_location]
         if locations:
             point_layer = mapnik.Layer(b'ocean locations', coordinates.WGS84)
             point_layer.datasource = mapnik.MemoryDatasource()
@@ -61,23 +61,23 @@ class FilteredOceanAdapter(object):
             context = mapnik.Context()
             for i, location in enumerate(locations):
                 f = mapnik.Feature(context, i)
-                f['Name'] = str(location['name'])
+                f['Name'] = str(location.name)
                 # TODO: might want to use something like this, instead of WKT. But how?
                 #f.add_geometry(Point(station['x'], station['y']))
-                f.add_geometries_from_wkt('POINT({} {})'.format(location['location_x'], location['location_y']))
+                f.add_geometries_from_wkt('POINT({} {})'.format(location.location_x, location.location_y))
                 point_layer.datasource.add_feature(f)
     
             layers.append(point_layer)
 
-        rasters = [node for node in self.nodes if node['is_raster']]
+        rasters = [node for node in self.nodes if node.is_raster]
         if rasters:
             s_name_2 = b'ocean_raster_style'
             styles[s_name_2] = self._get_raster_style()
 
             # Create a raster layer
             for raster in rasters:
-                file = raster['path']
-                layer_name = raster['name']
+                file = raster.path
+                layer_name = raster.name
                 raster_ds = mapnik.Gdal(file=str(file), shared=True)
                 layer = mapnik.Layer(str(layer_name), coordinates.WGS84)
                 layer.datasource = raster_ds
@@ -106,7 +106,7 @@ class FilteredOceanAdapter(object):
 
         result = []
         for location in self.nodes:
-            point2 = Point((location['location_x'], location['location_y']), srid=source_srid)
+            point2 = Point((location.location_x, location.location_y), srid=source_srid)
             distance = point.distance(point2)
             if distance < radius:
                 info = {

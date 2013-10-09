@@ -91,44 +91,44 @@ class RastersetInfoView(View):
 
         for rasterset in rastersets:
             info = {
-                'name': rasterset['name'],
-                'identifier': rasterset['identifier'],
+                'name': rasterset.name,
+                'identifier': rasterset.identifier,
                 'children': [
                     {
-                        'name': raster['name'],
-                        'identifier': raster['identifier'],
+                        'name': raster.name,
+                        'identifier': raster.identifier,
                     }
-                    for raster in rasterset['children']
+                    for raster in rasterset.children
                 ],
             }
             rasterset_info.append(info)
 
-        rasterset_identifiers = [rasterset['identifier'] for rasterset in rastersets]
+        rasterset_identifiers = [rasterset.identifier for rasterset in rastersets]
 
         # HACK: Trick to also pull in individual selected rasters.
         rasters = ocean_data.filter_by_property(selected_nodes, 'is_raster')
         for raster in rasters:
             # Skip rasters which already have been added as part of a rasterset.
-            if raster['parent'] in rasterset_identifiers:
+            if raster.parent in rasterset_identifiers:
                 continue
             # Find out if rasterset is already present.
             rasterset = None
             for info in rasterset_info:
-                if info['identifier'] == raster['parent']:
+                if info['identifier'] == raster.parent:
                     rasterset = info
                     break
             if not rasterset:
-                rasterset_node = node_dict[raster['parent']]
+                rasterset_node = node_dict[raster.parent]
                 info = {
-                    'name': rasterset_node['name'],
-                    'identifier': rasterset_node['identifier'],
+                    'name': rasterset_node.name,
+                    'identifier': rasterset_node.identifier,
                     'children': []
                 }
                 rasterset_info.append(info)
                 rasterset = info
             rasterset['children'].append({
-                'name': raster['name'],
-                'identifier': raster['identifier'],
+                'name': raster.name,
+                'identifier': raster.identifier,
             })
 
         response = HttpResponse(json.dumps(rasterset_info), content_type='application/json')
@@ -164,8 +164,8 @@ class MapClickView(View):
             raise Http404
 
         respose_dict = {
-            'identifier': found_location['location']['identifier'],
-            'name': found_location['location']['name']
+            'identifier': found_location['location'].identifier,
+            'name': found_location['location'].name
         }
 
         response = HttpResponse(json.dumps(respose_dict), content_type='application/json')
