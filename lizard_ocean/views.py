@@ -12,10 +12,13 @@ from django.utils import simplejson as json
 from django.http import HttpResponse
 from django.utils.functional import cached_property
 from django.conf import settings
+from django.contrib.gis.geos import Point
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
+from django.http import Http404
 
 from lizard_map.views import MapView
+from lizard_map.views import popup_json
 from lizard_ui.views import UiView
 
 from lizard_ocean import netcdf
@@ -130,6 +133,51 @@ class RastersetInfoView(View):
 
         response = HttpResponse(json.dumps(rasterset_info), content_type='application/json')
         return response
+
+class MapClickView(View):
+    @method_decorator(never_cache)
+    def get(self, request):
+        identifiers = request.GET.get('identifiers', '')
+        identifiers = [identifier.strip() for identifier in identifiers.split(',')]
+        lon = float(request.GET['lon'])
+        lat = float(request.GET['lat'])
+        srs = request.GET.get('srs', 'EPSG:3857')
+        srid = int(srs.lower().lstrip('epsg:'))
+        bbox = request.GET['bbox']
+        bbox = tuple([float(i.strip()) for i in bbox.split(',')])
+        width = float(request.GET['width'])
+        height = float(request.GET['height'])
+        resolution = request.GET.get('resolution')
+        if resolution: resolution = float(resolution)
+        x = request.GET.get('x')
+        y = request.GET.get('y')
+
+        tree = ocean_data.get_data_tree(settings.OCEAN_BASEDIR)
+        selected_nodes = ocean_data.filter_by_identifier(tree, identifiers)
+        locations = ocean_data.filter_by_property(selected_nodes, 'is_location')
+
+        point = Point((lon, lat), srid=srid)
+
+        adapter = FilteredOceanAdapter(locations)
+        found_location = adapter.search(point, srid=srid, bbox=bbox, width=width, height=height, resolution=resolution)
+        if not found_location:
+            raise Http404
+
+        respose_dict = {
+            'identifier': found_location['location']['identifier'],
+            'name': found_location['location']['name']
+        }
+
+        response = HttpResponse(json.dumps(respose_dict), content_type='application/json')
+        return response
+
+class GraphView(View):
+    format = 'flot'
+
+    @method_decorator(never_cache)
+    def get(self, request):
+        print(self.format)
+        return None
 
 class MainView(MapView):
     """Main view of the application."""

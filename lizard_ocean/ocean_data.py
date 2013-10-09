@@ -8,17 +8,23 @@ from __future__ import division
 
 import os
 import hashlib
+import logging
+
+from django.core.cache import cache
+from hashlib import sha1
 
 from lizard_ocean import netcdf
 from lizard_ocean import raster
 
+logger = logging.getLogger(__name__)
+
 def make_node(path, name, parent_node):
     '''Return a skeleton node instance for use in the data tree.'''
-    identifier = hashlib.md5(path).hexdigest()[:10]
+    identifier = hashlib.md5(path).hexdigest()[:8]
     return {
         'path': path,
-        'name': name,
         'identifier': identifier,
+        'name': name,
         'children': None,
         'parent': parent_node['identifier'] if parent_node else None,
         'is_rasterset': False,
@@ -36,8 +42,8 @@ def get_netcdf_parameters_as_nodes(netcdf_path, parent_node):
     '''Read parameters from a NetCDF file and return them as data tree nodes.'''
     nodes = []
     netcdf_file = netcdf.NetcdfFile(netcdf_path)
-    stations = netcdf_file.stations
-    for parameter in netcdf_file.parameters:
+    stations = netcdf_file.stations()
+    for parameter in netcdf_file.parameters():
         path = '{}/{}'.format(netcdf_path, parameter['id'])
         node = make_node(path, parameter['name'], parent_node)
 
@@ -50,6 +56,7 @@ def get_netcdf_parameters_as_nodes(netcdf_path, parent_node):
                 'location_id': station['id'],
                 'location_x': station['x'],
                 'location_y': station['y'],
+                'location_index': station['index'],
             })
             children.append(child_node)
 
@@ -69,34 +76,45 @@ def get_data_tree(dir, level=0, parent_node=None):
     '''
     if level > 20:
         raise Exception('Too much recursion in "{}"'.format(dir))
-    nodes = []
-    for fn in sorted(os.listdir(dir)):
-        path = os.path.join(dir, fn)
-        bn, ext = os.path.splitext(fn)
-        node = make_node(path, fn, parent_node)
-        if os.path.isdir(path):
-            node.update({
-                'children': get_data_tree(path, level + 1, node)
-            })
-        elif os.path.isfile(path):
-            if ext == '.png' and parent_node:
-                if not parent_node['is_rasterset']:
-                    parent_node['is_rasterset'] = True
+
+    mtime = os.path.getmtime(dir)
+    cache_key = '{}:{}'.format(dir, mtime)
+    nodes = cache.get(cache_key)
+
+    if nodes is None:
+        nodes = []
+        for fn in sorted(os.listdir(dir)):
+            path = os.path.join(dir, fn)
+            bn, ext = os.path.splitext(fn)
+            node = make_node(path, fn, parent_node)
+            if os.path.isdir(path):
                 node.update({
-                    'is_raster': True,
+                    'children': get_data_tree(path, level + 1, node)
                 })
-            elif ext == '.nc':
-                node.update({
-                    'is_netcdf': True,
-                    'children': get_netcdf_parameters_as_nodes(path, node),
-                })
+            elif os.path.isfile(path):
+                if ext == '.png' and parent_node:
+                    if not parent_node['is_rasterset']:
+                        parent_node['is_rasterset'] = True
+                    node.update({
+                        'is_raster': True,
+                    })
+                elif ext == '.nc':
+                    node.update({
+                        'is_netcdf': True,
+                        'children': get_netcdf_parameters_as_nodes(path, node),
+                    })
+                else:
+                    node = None
             else:
                 node = None
-        else:
-            node = None
 
-        if node:
-            nodes.append(node)
+            if node:
+                nodes.append(node)
+        logger.debug('get_data_tree: cache MISS %s %s %s', dir, mtime, len(str(nodes)))
+        cache.set(cache_key, nodes, 300)
+    else:
+        logger.debug('get_data_tree: cache hit')
+
     return nodes
 
 def flatten_nodes(nodes):

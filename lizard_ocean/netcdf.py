@@ -10,8 +10,11 @@ import os
 import pytz
 from netCDF4 import Dataset
 from netCDF4 import num2date
+
 from django.conf import settings
 from django.utils.functional import cached_property
+
+from lizard_ocean.utils import cached_instance_method
 
 
 logger = logging.getLogger(__name__)
@@ -27,12 +30,17 @@ def netcdf_filepaths():
 class NetcdfFile(object):
     """Wrapper around a netcdf file, used to extract information."""
 
-    def __init__(self, filename):
-        self.filename = filename
-        self.dataset = Dataset(filename, mode='r')
-        self.metadata_keys = ['x', 'y', 'id', 'name']
+    def __init__(self, path):
+        self.path = path
+        self.dataset = Dataset(path, mode='r')
 
     @cached_property
+    def cache_key(self):
+        mtime = os.path.getmtime(self.path)
+        cache_key = '{}:{}'.format(self.path, mtime)
+        return cache_key
+
+    @cached_instance_method(60*60*24)
     def stations(self):
         """Return station metadata, i.e. everything apart from timeseries."""
         xs = [float(x) for x in self.dataset.variables['x']]
@@ -40,17 +48,17 @@ class NetcdfFile(object):
         ids = [''.join(id.data) for id in self.dataset.variables['station_id']]
         names = [''.join(name.data) for name in self.dataset.variables['station_names']]
 
-        keys = self.metadata_keys
+        keys = ['x', 'y', 'id', 'name']
         values_per_station = zip(xs, ys, ids, names)
         result = []
         for index, values in enumerate(values_per_station):
             # values is a list of items in the order of our keys.
             station = dict(zip(keys, values))
-            station['station_index'] = index
+            station['index'] = index
             result.append(station)
         return result
 
-    @cached_property
+    @cached_instance_method(60*60*24)
     def parameters(self):
         """Return id/name/unit dicts of the available parameters.
 
@@ -67,7 +75,7 @@ class NetcdfFile(object):
                 unit = variable.units
             except AttributeError:
                 msg = "Variable '{}' in {} misses 'long_name' or 'units'"
-                msg = msg.format(id, self.filename)
+                msg = msg.format(id, self.path)
                 logger.exception(msg)
                 continue  # Omit this parameter.
             result.append(dict(id=id, name=name, unit=unit))

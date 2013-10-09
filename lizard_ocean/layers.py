@@ -8,12 +8,15 @@ import logging
 from django.utils.functional import cached_property
 from django.conf import settings
 from django.http import Http404
+from django.contrib.gis.geos import Point
+
+import mapnik
+import pytz
+
 from lizard_map import coordinates
 from lizard_map.adapter import FlotGraph, Graph
 from lizard_map.models import ICON_ORIGINALS
 from lizard_map.symbol_manager import SymbolManager
-import mapnik
-import pytz
 
 from lizard_ocean import netcdf
 from lizard_ocean import ocean_data
@@ -36,9 +39,6 @@ def get_pointsymbolizer_args(path, format='png', width=16, height=16):
     if hasattr(mapnik, 'PathExpression'):
         return (mapnik.PathExpression(path),)
     return (path, format, width, height)
-
-def distance(x1, y1, x2, y2):
-    return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
 class FilteredOceanAdapter(object):
     def __init__(self, nodes):
@@ -86,30 +86,36 @@ class FilteredOceanAdapter(object):
 
         return layers, styles
 
-    def search(self, google_x, google_y, radius=None):
-        """Return list of dict {'distance': <float>, 'timeserie':
-        <timeserie>} of closest points that match x, y, radius.
+    def search(self, point, srid=None, bbox=None, width=None, height=None, resolution=None, icon_radius_px=8):
+        source_srid = 4326
+        # Note: Django GIS' Point.distance does NOT warn when using mixed SRID.
+        # We have to manually transform first :-(
+        point = point.transform(source_srid, clone=True)
 
-        """
+        # Calculate radius, when a bbox is passed.
+        if srid and bbox and width and height and not resolution:
+            p1 = Point(bbox[0:2], srid=srid).transform(source_srid, clone=True)
+            p2 = Point(bbox[2:4], srid=srid).transform(source_srid, clone=True)
+            diagonal_dist_units = p1.distance(p2)
+            diagonal_dist_px = (width**2+height**2)**0.5
+            resolution = diagonal_dist_units / diagonal_dist_px
+        else:
+            onedim = Point((resolution, resolution), srid=srid).transform(source_srid, clone=True)
+            resolution = onedim[0]
+        radius = icon_radius_px * resolution
+
         result = []
         for location in self.nodes:
-            x, y = coordinates.wgs84_to_google(
-                location['location_x'],
-                location['location_y'])
-            dist = distance(google_x, google_y, x, y)
-            if dist < radius:
-                result.append(
-                    {'distance': dist,
-                     'name': location['name'],
-                     'shortname': location['name'],
-                     'identifier': {'station_id': location['location_id']},
-                     'google_coords': (x, y),
-                     'object': None})
+            point2 = Point((location['location_x'], location['location_y']), srid=source_srid)
+            distance = point.distance(point2)
+            if distance < radius:
+                info = {
+                    'distance': distance,
+                    'location': location,
+                }
+                result.append(info)
         result.sort(key=lambda item: item['distance'])
-        if result:
-            return result[:1]
-        else:
-            return []
+        if result: return result[0]
 
     def _get_location_style(self):
         symbol_manager = SymbolManager(

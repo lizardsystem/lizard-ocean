@@ -136,6 +136,59 @@
         }
     });
 
+    var OceanClickControl = OpenLayers.Class(OpenLayers.Control, {
+        defaultHandlerOptions: {
+            'single': true,
+            'double': false,
+            'pixelTolerance': 0,
+            'stopSingle': false,
+            'stopDouble': false
+        },
+
+        initialize: function (options) {
+            this.handlerOptions = OpenLayers.Util.extend({}, this.defaultHandlerOptions);
+            OpenLayers.Control.prototype.initialize.apply(this, arguments);
+            this.handler = new OpenLayers.Handler.Click(this, {'click': this.trigger}, this.handlerOptions);
+        },
+
+        trigger: function (e) {
+            var lonlat = map.getLonLatFromViewPortPx(e.xy);
+            var mapSize = map.getSize();
+            $.get('/ocean/ejclick/', {
+                identifiers: getSelectedIdentifiers().join(','),
+                lon: lonlat.lon,
+                lat: lonlat.lat,
+                srs: map.getProjection(),
+                bbox: map.getExtent().toBBOX(),
+                width: mapSize.w,
+                height: mapSize.h,
+                resolution: map.getResolution(),
+                x: e.xy.x,
+                y: e.xy.y
+            })
+            .done(function (data) {
+                // Abuse some existing lizard-map code here.
+                open_popup(false);
+                $('#movable-dialog').dialog('option', 'title', data.name);
+                var params = $.param({
+                    identifier: data.identifier
+                });
+                var $graph = $('<div style="width: 100%; height: 300px;" class="dynamic-graph"></div>')
+                .attr({
+                    'data-flot-graph-data-url': '/ocean/ejflot/?' + params,
+                    'data-image-graph-url': '/ocean/ejimg/?' + params
+                });
+                $('#movable-dialog-content').append($graph);
+                var $downloadButton = $('<a class="btn">Download values</a>')
+                .attr({
+                    href: '/ocean/ejdownload/?' + params
+                });
+                $('#movable-dialog-content').append($downloadButton);
+                reloadGraphs();
+            });
+        }
+    });
+
     function setSubtract (a1, a2) {
       return $.grep(a1, function (v) {
           return $.inArray(v, a2) === -1;
@@ -638,9 +691,20 @@
         return identifiers;
     }
 
+    // Note: has to run AFTER lizard_map's document.ready().
     $(document).ready(function () {
         // Force i18n to English.
         moment.lang('en');
+
+        // Kill the default click handler.
+        // No way to reference the old control by ID...
+        var oldClickControl = map.getControlsByClass('OpenLayers.Control')[0];
+        oldClickControl.deactivate();
+        map.removeControl(oldClickControl);
+        // Add our own handler.
+        var newClickControl = new OceanClickControl();
+        map.addControl(newClickControl);
+        newClickControl.activate();
 
         // Add a single OL layer for the locations.
         var locationsLayer = new OpenLayers.Layer.WMS('locations', '/ocean/ejwms/',
@@ -707,7 +771,6 @@
                 var nodes = data.tree.getSelectedNodes(true);
 
                 var identifiers = getIdentifiers(nodes);
-                console.log('identifiers ', identifiers);
                 locationsLayer.mergeNewParams({
                     layers: identifiers
                 });
@@ -719,4 +782,11 @@
             }
         });
     });
+
+    function getSelectedIdentifiers () {
+        var tree = $("#ocean-tree").data('fancytree').tree;
+        var nodes = tree.getSelectedNodes(true);
+        var identifiers = getIdentifiers(nodes);
+        return identifiers;
+    }
 })();
