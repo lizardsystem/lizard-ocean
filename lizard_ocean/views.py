@@ -17,6 +17,9 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
 from django.http import Http404
 
+import mapnik
+from dateutil.parser import parse as date_parse
+
 from lizard_map.views import MapView
 from lizard_map.views import popup_json
 from lizard_ui.views import UiView
@@ -25,7 +28,6 @@ from lizard_ocean import netcdf
 from lizard_ocean import raster
 from lizard_ocean import ocean_data
 
-import mapnik
 from lizard_map import coordinates
 from lizard_ocean.layers import FilteredOceanAdapter
 
@@ -159,16 +161,27 @@ class MapClickView(View):
         point = Point((lon, lat), srid=srid)
 
         adapter = FilteredOceanAdapter(selected_nodes)
-        found_location = adapter.search(point, srid=srid, bbox=bbox, width=width, height=height, resolution=resolution)
-        if not found_location:
+        search_results = adapter.search(point, srid=srid, bbox=bbox, width=width, height=height, resolution=resolution)
+        if not search_results:
             raise Http404
 
-        respose_dict = {
-            'identifier': found_location['location'].identifier,
-            'name': found_location['location'].name
-        }
+        if len(search_results) > 8:
+            search_results = search_results[:8]
 
-        response = HttpResponse(json.dumps(respose_dict), content_type='application/json')
+        # Group by parameter. Kind of a hack.
+        params_map = {}
+        for search_result in search_results:
+            location = search_result['location']
+            parameter = tree.node_dict[location.parent]
+            if parameter.parameter_id not in params_map:
+                params_map[parameter.parameter_id] = {
+                    'identifiers': [],
+                    'names': [],
+                }
+            params_map[parameter.parameter_id]['identifiers'].append(location.identifier)
+            params_map[parameter.parameter_id]['names'].append(parameter.parameter_name)
+
+        response = HttpResponse(json.dumps(params_map), content_type='application/json')
         return response
 
 class GraphView(View):
@@ -176,8 +189,25 @@ class GraphView(View):
 
     @method_decorator(never_cache)
     def get(self, request):
-        print(self.format)
-        return None
+        identifiers = request.GET['identifiers']
+        identifiers = [identifier.strip() for identifier in identifiers.split(',')]
+        start_date = date_parse(request.GET['dt_start'])
+        end_date = date_parse(request.GET['dt_end'])
+
+        tree = ocean_data.Tree()
+        selected_nodes = tree.filter_by_identifier(identifiers)
+        adapter = FilteredOceanAdapter(selected_nodes, tree=tree)
+
+        if self.format == 'flot':
+            response_dict = adapter.flot_graph_data(start_date, end_date)
+            response = HttpResponse(json.dumps(response_dict), content_type='application/json')
+            return response
+        elif self.format == 'png':
+            width = float(request.GET['width'])
+            height = float(request.GET['height'])
+            bytes = adapter.image(start_date, end_date, width=width, height=height)
+            response = HttpResponse(bytes, content_type='image/png')
+            return response
 
 class MainView(MapView):
     """Main view of the application."""

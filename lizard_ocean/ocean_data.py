@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 Node = recordtype('Node', """
     path, identifier, name, children, parent,
     is_rasterset, is_raster, is_netcdf,
-    is_parameter, parameter_id,
+    is_parameter, parameter_id, parameter_name, parameter_unit,
     is_location, location_id, location_x, location_y, location_index
 """)
 
@@ -35,7 +35,7 @@ def make_node(path, name, parent_node):
     return Node(
         path, identifier, name, None, parent_node.identifier if parent_node else None,
         False, False, False,
-        False, None,
+        False, None, None, None,
         False, None, None, None, None
     )
 
@@ -61,6 +61,8 @@ def get_netcdf_parameters_as_nodes(netcdf_path, parent_node):
 
         node.is_parameter = True
         node.parameter_id = parameter['id']
+        node.parameter_name = parameter['name']
+        node.parameter_unit = parameter['unit']
         node.children = children
         nodes.append(node)
     netcdf_file.close()

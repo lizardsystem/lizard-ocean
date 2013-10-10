@@ -169,21 +169,30 @@
             .done(function (data) {
                 // Abuse some existing lizard-map code here.
                 open_popup(false);
-                $('#movable-dialog').dialog('option', 'title', data.name);
-                var params = $.param({
-                    identifier: data.identifier
+                var allNames = [];
+                var identifiers = [];
+                $.each(data, function () {
+                    $.each(this.names, function (index, value) {
+                        if ($.inArray(value, allNames) === -1) {
+                            allNames.push(value);
+                        }
+                    });
+                    var params = $.param({
+                        identifiers: this.identifiers.join(',')
+                    });
+                    var $graph = $('<div style="width: 100%; height: 300px;" class="dynamic-graph"></div>')
+                    .attr({
+                        'data-flot-graph-data-url': '/ocean/ejflot/?' + params,
+                        'data-image-graph-url': '/ocean/ejimg/?' + params
+                    });
+                    $('#movable-dialog-content').append($graph);
+                    var $downloadButton = $('<a class="btn">Download values</a>')
+                    .attr({
+                        href: '/ocean/ejdownload/?' + params
+                    });
+                    $('#movable-dialog-content').append($downloadButton);
                 });
-                var $graph = $('<div style="width: 100%; height: 300px;" class="dynamic-graph"></div>')
-                .attr({
-                    'data-flot-graph-data-url': '/ocean/ejflot/?' + params,
-                    'data-image-graph-url': '/ocean/ejimg/?' + params
-                });
-                $('#movable-dialog-content').append($graph);
-                var $downloadButton = $('<a class="btn">Download values</a>')
-                .attr({
-                    href: '/ocean/ejdownload/?' + params
-                });
-                $('#movable-dialog-content').append($downloadButton);
+                $('#movable-dialog').dialog('option', 'title', allNames.join(', '));
                 reloadGraphs();
             });
         }

@@ -41,7 +41,8 @@ def get_pointsymbolizer_args(path, format='png', width=16, height=16):
     return (path, format, width, height)
 
 class FilteredOceanAdapter(object):
-    def __init__(self, nodes):
+    def __init__(self, nodes, tree=None):
+        self.tree = tree
         self.nodes = nodes
 
     def layers(self):
@@ -117,7 +118,7 @@ class FilteredOceanAdapter(object):
                 }
                 result.append(info)
         result.sort(key=lambda item: item['distance'])
-        if result: return result[0]
+        return result
 
     def _get_location_style(self):
         symbol_manager = SymbolManager(
@@ -145,72 +146,60 @@ class FilteredOceanAdapter(object):
         s.rules.append(r)
         return s
 
-    def flot_graph_data(self, start_date, end_date, layout_extra=None, raise_404_if_empty=False):
-        return self._render_graph(start_date, end_date, layout_extra=layout_extra, raise_404_if_empty=raise_404_if_empty, GraphClass=FlotGraph)
+    def flot_graph_data(self, start_date, end_date, layout_extra=None):
+        return self._render_graph(start_date, end_date, layout_extra=layout_extra, GraphClass=FlotGraph)
 
-    def image(self, start_date, end_date, width=380.0, height=250.0, layout_extra=None, raise_404_if_empty=False):
-        return self._render_graph(start_date, end_date, width=width, height=height, layout_extra=layout_extra, raise_404_if_empty=raise_404_if_empty, GraphClass=Graph)
+    def image(self, start_date, end_date, width=380.0, height=250.0, layout_extra=None):
+        return self._render_graph(start_date, end_date, width=width, height=height, layout_extra=layout_extra, GraphClass=Graph)
 
-    def _render_graph(self, start_date, end_date, layout_extra=None, raise_404_if_empty=False, GraphClass=FlotGraph, **extra_params):
+    def _render_graph(self, start_date, end_date, layout_extra=None, GraphClass=FlotGraph, **extra_params):
+        '''Returns one graph per location.'''
         today = datetime.datetime.now()
-        graph = GraphClass(start_date, end_date, today=today, tz=pytz.timezone(settings.TIME_ZONE), **extra_params)
-        graph.axes.grid(True)
-        parameter_id = 'H_simulated'
-        graph.axes.set_ylabel('{} ({})'.format(parameter_name, parameter_unit))
 
-        title = None
-        y_min, y_max = None, None
-
-        is_empty = True
         locations = self.nodes.filter_by_property('is_location').get()
-        for i, location in enumerate(locations):
-            if i == 0:
-                # Use parameter name of the first location.
-                parameter_name = "FIXME"
-                parameter_unit = "FIXME"
 
-            netcdf_path = node.path
-            netcdf_file = netcdf.NetcdfFile(netcdf_path)
-            # Plot data if available.
-            pairs = netcdf_file.time_value_pairs(parameter_id, location.location_index)
+        # Group by parameter.
+        graph_map = {}
+        def get_or_create_graph(parameter):
+            if parameter.parameter_id not in graph_map:
+                graph = GraphClass(start_date, end_date, today=today, tz=pytz.timezone(settings.TIME_ZONE), **extra_params)
+                graph.axes.grid(True)
+                graph.axes.set_ylabel('{} ({})'.format(parameter.parameter_name, parameter.parameter_unit))
+                graph_map[parameter.parameter_id] = graph
+            return graph_map[parameter.parameter_id]
+
+        for location in locations:
+            parameter = self.tree.node_dict[location.parent]
+            graph = get_or_create_graph(parameter)
+            netcdf_node = self.tree.node_dict[parameter.parent]
+            netcdf_file = netcdf.NetcdfFile(netcdf_node.path)
+            pairs = netcdf_file.time_value_pairs(parameter.parameter_id, location.location_index)
             pairs = [(date, value) for date, value in pairs if start_date < date < end_date]
             dates = [date for date, value in pairs]
             values = [value for date, value in pairs]
+            label = '{} ({})'.format(location.name, netcdf_node.name)
             if values:
-                graph.axes.plot(dates, values, lw=1, label=location.name)
+                graph.axes.plot(dates, values, lw=1, label=label)
 
-        if is_empty and raise_404_if_empty:
-            raise Http404
+        for graph in graph_map.values():
+            graph.legend()
+            title = None
+            y_min, y_max = None, None
+            if graph.axes.legend_ is not None:
+                graph.axes.legend_.draw_frame(False)
+            y_min_manual = y_min is not None
+            y_max_manual = y_max is not None
+            if y_min is None:
+                y_min, ignored = graph.axes.get_ylim()
+            if y_max is None:
+                ignored, y_max = graph.axes.get_ylim()
+            if title:
+                graph.suptitle(title)
+            graph.set_ylim(y_min, y_max, y_min_manual, y_max_manual)
+            graph.add_today()
 
-        # Originally legend was only turned on if layout.get('legend')
-        # was true. However, as far as I can see there is no way for
-        # that to become set anymore. Since a legend should always be
-        # drawn, we simply put the following:
-        graph.legend()
-
-        # If there is data, don't draw a frame around the legend
-        if graph.axes.legend_ is not None:
-            graph.axes.legend_.draw_frame(False)
-        else:
-            # TODO: If there isn't, draw a message. Give a hint that
-            # using another time period might help.
-            pass
-
-        # Extra layout parameters. From lizard-fewsunblobbed.
-        y_min_manual = y_min is not None
-        y_max_manual = y_max is not None
-        if y_min is None:
-            y_min, ignored = graph.axes.get_ylim()
-        if y_max is None:
-            ignored, y_max = graph.axes.get_ylim()
-
-        if title:
-            graph.suptitle(title)
-
-        graph.set_ylim(y_min, y_max, y_min_manual, y_max_manual)
-
-        graph.add_today()
-        return graph.render()
+        #return [graph.render() for graph in graph_map.values()]
+        return graph_map.values()[0].render()
 
     def values(self, start_date, end_date):
         station_index = location['object']['station_index']
