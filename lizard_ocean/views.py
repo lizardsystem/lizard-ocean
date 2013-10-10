@@ -249,6 +249,7 @@ class DownloadView(View):
             rowdata = [0] * 3 * len(location_values)
             for base, item in enumerate(location_values):
                 if i < len(item['values']):
+                    base *= 3
                     rowdata[base] = item['values'][i][0]
                     rowdata[base + 1] = item['values'][i][1]
                     rowdata[base + 2] = item['unit']

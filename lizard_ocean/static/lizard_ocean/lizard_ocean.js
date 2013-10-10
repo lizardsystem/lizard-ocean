@@ -171,6 +171,20 @@
                 open_popup(false);
                 var allNames = [];
                 var identifiers = [];
+
+                // add currently selected date range to download url
+                var appendToUrl = '';
+                var view_state = get_view_state();
+                view_state = to_date_strings(view_state);
+                if (view_state !== undefined) {
+                    if (view_state.dt_start && view_state.dt_end) {
+                        appendToUrl = '&' + $.param({
+                            dt_start: view_state.dt_start,
+                            dt_end: view_state.dt_end
+                        });
+                    }
+                }
+
                 $.each(data, function () {
                     $.each(this.names, function (index, value) {
                         if ($.inArray(value, allNames) === -1) {
@@ -188,7 +202,7 @@
                     $('#movable-dialog-content').append($graph);
                     var $downloadButton = $('<a class="btn">Download values</a>')
                     .attr({
-                        href: '/ocean/ejdownload/?' + params
+                        href: '/ocean/ejdownload/?' + params + appendToUrl
                     });
                     $('#movable-dialog-content').append($downloadButton);
                 });
