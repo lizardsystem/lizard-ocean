@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 from __future__ import print_function
 
 import os
+import csv
 
 from django.utils.translation import ugettext as _
 # from django.core.urlresolvers import reverse
@@ -208,6 +209,51 @@ class GraphView(View):
             bytes = adapter.image(start_date, end_date, width=width, height=height)
             response = HttpResponse(bytes, content_type='image/png')
             return response
+
+
+class DownloadView(View):
+    @method_decorator(never_cache)
+    def get(self, request):
+        identifiers = request.GET['identifiers']
+        identifiers = [identifier.strip() for identifier in identifiers.split(',')]
+        start_date = request.GET.get('dt_start')
+        end_date = request.GET.get('dt_end')
+        if not (start_date and end_date):
+            from datetime import datetime
+            import pytz
+            start_date = datetime(2013, 1, 1, tzinfo=pytz.UTC)
+            end_date = datetime(2013, 10, 1, tzinfo=pytz.UTC)
+        else:
+            start_date = date_parse(start_date)
+            end_date = date_parse(end_date)
+
+        tree = ocean_data.Tree()
+        selected_nodes = tree.filter_by_identifier(identifiers)
+        adapter = FilteredOceanAdapter(selected_nodes, tree=tree)
+
+        location_values = adapter.values(start_date, end_date)
+
+        columns = [item['name'] for item in location_values]
+        columns = ['date {0},value {0},unit {0}'.format(col).split(',') for col in columns]
+        columns = [item for sublist in columns for item in sublist]
+
+        name = 'export'
+        filename = '{}.csv'.format(name).encode('us-ascii', errors='ignore')
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        # Write header row.
+        writer.writerow(columns)
+        max_values_length = max([len(item['values']) for item in location_values])
+        for i in xrange(max_values_length):
+            rowdata = [0] * 3 * len(location_values)
+            for base, item in enumerate(location_values):
+                if i < len(item['values']):
+                    rowdata[base] = item['values'][i][0]
+                    rowdata[base + 1] = item['values'][i][1]
+                    rowdata[base + 2] = item['unit']
+            writer.writerow(rowdata)
+        return response
 
 class MainView(MapView):
     """Main view of the application."""

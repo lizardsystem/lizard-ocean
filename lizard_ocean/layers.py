@@ -202,15 +202,21 @@ class FilteredOceanAdapter(object):
         return graph_map.values()[0].render()
 
     def values(self, start_date, end_date):
-        station_index = location['object']['station_index']
-        # Plot data if available.
-        pairs = self.netcdf_file.time_value_pairs(self.parameter_id, station_index)
-        pairs = [(date, value) for date, value in pairs
-                 if start_date < date < end_date]
-        return [{'value': value,
-                 'datetime': date,
-                 'unit': self.parameter_unit}
-                for date, value in pairs]
+        result = []
+        locations = self.nodes.filter_by_property('is_location').get()
+        for location in locations:
+            parameter = self.tree.node_dict[location.parent]
+            netcdf_node = self.tree.node_dict[parameter.parent]
+            netcdf_file = netcdf.NetcdfFile(netcdf_node.path)
+            pairs = netcdf_file.time_value_pairs(parameter.parameter_id, location.location_index)
+            pairs = [(date, value) for date, value in pairs if start_date < date < end_date]
+            info = {
+                'name': '{} ({})'.format(location.name, parameter.parameter_name),
+                'unit': parameter.parameter_unit,
+                'values': pairs
+            }
+            result.append(info)
+        return result
 
 '''
 class OceanPointAdapter(workspace.WorkspaceItemAdapter):
