@@ -113,16 +113,16 @@ class RastersetInfoView(View):
         rasters = selected_nodes.filter_by_property('is_raster').get()
         for raster in rasters:
             # Skip rasters which already have been added as part of a rasterset.
-            if raster.parent in rasterset_identifiers:
+            if raster.parent.identifier in rasterset_identifiers:
                 continue
             # Find out if rasterset is already present.
             rasterset = None
             for info in rasterset_info:
-                if info['identifier'] == raster.parent:
+                if info['identifier'] == raster.parent.identifier:
                     rasterset = info
                     break
             if not rasterset:
-                rasterset_node = tree.node_dict[raster.parent]
+                rasterset_node = raster.parent
                 info = {
                     'name': rasterset_node.name,
                     'identifier': rasterset_node.identifier,
@@ -173,7 +173,7 @@ class MapClickView(View):
         params_map = {}
         for search_result in search_results:
             location = search_result['location']
-            parameter = tree.node_dict[location.parent]
+            parameter = location.parent
             if parameter.parameter_id not in params_map:
                 params_map[parameter.parameter_id] = {
                     'identifiers': [],

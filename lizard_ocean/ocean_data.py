@@ -33,7 +33,7 @@ def make_node(path, name, parent_node):
     '''Return a skeleton node instance for use in the data tree.'''
     identifier = hashlib.md5(path).hexdigest()[:8]
     return Node(
-        path, identifier, name, None, parent_node.identifier if parent_node else None,
+        path, identifier, name, None, parent_node,
         False, False, False,
         False, None, None, None,
         False, None, None, None, None
@@ -149,9 +149,8 @@ def to_fancytree(nodes):
         result.append(fancy_node)
     return result
 
-def filter_by_identifier(nodes, identifiers):
+def filter_by_identifier(node_dict, nodes, identifiers):
     '''Filters the tree by given identifiers.'''
-    node_dict = get_node_dict(nodes)
     nodes = [node_dict[identifier] for identifier in identifiers if identifier in node_dict]
     return nodes
 
@@ -174,23 +173,24 @@ class Tree(object):
         self.node_dict = get_node_dict(self.tree)
 
     def filter_by_identifier(self, identifiers):
-        return NodeList(self.tree[:]).filter_by_identifier(identifiers)
+        return NodeList(self, self.tree[:]).filter_by_identifier(identifiers)
 
     def filter_by_property(self, property):
-        return NodeList(self.tree[:]).filter_by_property(property)
+        return NodeList(self, self.tree[:]).filter_by_property(property)
 
     def get(self):
         return self.tree
 
 class NodeList(object):
-    def __init__(self, nodes):
+    def __init__(self, tree, nodes):
+        self.tree = tree
         self.nodes = nodes
 
     def filter_by_identifier(self, identifiers):
-        return NodeList(filter_by_identifier(self.nodes, identifiers))
+        return NodeList(self.tree, filter_by_identifier(self.tree.node_dict, self.nodes, identifiers))
 
     def filter_by_property(self, property):
-        return NodeList(filter_by_property(self.nodes, property))
+        return NodeList(self.tree, filter_by_property(self.nodes, property))
 
     def get(self):
         return self.nodes

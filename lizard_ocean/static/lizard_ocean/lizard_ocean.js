@@ -200,7 +200,7 @@
                         'data-image-graph-url': '/ocean/ejimg/?' + params
                     });
                     $('#movable-dialog-content').append($graph);
-                    var $downloadButton = $('<a class="btn">Download values</a>')
+                    var $downloadButton = $('<a class="btn">Download</a>')
                     .attr({
                         href: '/ocean/ejdownload/?' + params + appendToUrl
                     });
