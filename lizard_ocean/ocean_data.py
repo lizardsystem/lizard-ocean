@@ -46,12 +46,14 @@ def get_netcdf_parameters_as_nodes(netcdf_path, parent_node):
     stations = netcdf_file.stations()
     for parameter in netcdf_file.parameters():
         path = '{}/{}'.format(netcdf_path, parameter['id'])
-        node = make_node(path, parameter['name'], parent_node)
+        parameter_name = parameter['name'].replace('_', ' ')
+        node = make_node(path, parameter_name, parent_node)
 
         children = []
         for station in stations:
             child_path = '{}/{}/{}'.format(path, parameter['id'], station['id'])
-            child_node = make_node(child_path, station['name'], node)
+            station_name = station['name'].lstrip('_')
+            child_node = make_node(child_path, station_name, node)
             child_node.is_location = True
             child_node.location_id = station['id']
             child_node.location_x = station['x']
@@ -59,13 +61,20 @@ def get_netcdf_parameters_as_nodes(netcdf_path, parent_node):
             child_node.location_index = station['index']
             children.append(child_node)
 
+        # Sort by station name.
+        children.sort(key=lambda item: item.name)
+
         node.is_parameter = True
         node.parameter_id = parameter['id']
-        node.parameter_name = parameter['name']
+        node.parameter_name = parameter_name
         node.parameter_unit = parameter['unit']
         node.children = children
         nodes.append(node)
     netcdf_file.close()
+
+    # Sort by parameter name.
+    nodes.sort(key=lambda item: item.name)
+
     return nodes
 
 def get_data_tree(dir, level=0, parent_node=None):
@@ -85,7 +94,8 @@ def get_data_tree(dir, level=0, parent_node=None):
         for fn in sorted(os.listdir(dir)):
             path = os.path.join(dir, fn)
             bn, ext = os.path.splitext(fn)
-            node = make_node(path, fn, parent_node)
+            name = bn.replace('_', ' ')
+            node = make_node(path, name, parent_node)
             if os.path.isdir(path):
                 node.children = get_data_tree(path, level + 1, node)
             elif os.path.isfile(path):
