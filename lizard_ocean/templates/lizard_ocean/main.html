@@ -4,6 +4,9 @@
 {% block css %}
   {{ block.super }}
   <link rel="stylesheet"
+        href="{% static 'lizard_ocean/fancytree/skin-win8/ui.fancytree.css' %}"
+        type="text/css" />
+  <link rel="stylesheet"
         href="{% static 'lizard_ocean/lizard_ocean.css' %}"
         type="text/css"
         media="screen, projection" />
@@ -11,6 +14,10 @@
 
 {% block map-javascript %}
   {{ block.super }}
+  <script>
+    var treeData = {{ view.tree_json|safe }};
+  </script>
+  <script src="{{ STATIC_URL  }}lizard_ocean/fancytree/jquery.fancytree.js"></script>
   <script src="{{ STATIC_URL  }}lizard_ocean/lizard_ocean.js"></script>
 {% endblock map-javascript %}
 
@@ -72,19 +79,7 @@
 {% endblock breadcrumbs %}
 
 {% block sidebar %}
-  {% for point_file in view.point_files %}
-    <h2>{{ point_file.name }}</h2>
-    {% for workspace_acceptable in point_file.workspace_acceptables %}
-      {{ workspace_acceptable.to_html }}
-    {% endfor %}
-    <br />
-  {% endfor %}
-
-  <h2>Map data</h2>
-  {% for workspace_acceptable in view.raster_sets %}
-    {{ workspace_acceptable.to_html }}
-  {% endfor %}
-
+  <div id="ocean-tree" class="unselectable" unselectable="on"></div>
   {% if user.is_superuser %}
     <hr />
     <p>Admin-only debug pages:</p>

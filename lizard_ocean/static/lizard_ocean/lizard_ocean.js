@@ -18,11 +18,27 @@
   while (method = methods.pop()) con[method] = con[method] || dummy;
 })(window.console = window.console || {});
 
+/* ******************************************************************** */
+/* ******************************************************************** */
+/* ******************************************************************** */
+/* ******************************************************************** */
+/* ******************************************************************** */
+/* ******************************************************************** */
 (function () {
+    var RASTER_LAYER_ZINDEX = 700;
+    var LOCATIONS_LAYER_ZINDEX = 1000;
+
+    /* ******************************************************************** */
+    /* ******************************************************************** */
+    /* ******************************************************************** */
+    /* ******************************************************************** */
+    /* ******************************************************************** */
+    /* ******************************************************************** */
     var CssHideableWMSLayer = OpenLayers.Class(OpenLayers.Layer.WMS, {
         cssVisibility: true,
         isAnimated: true,
         frameIndex: null,
+        frameId: null,
         frameLabel: '',
 
         initialize: function (name, url, params, options) {
@@ -32,6 +48,9 @@
                 this.cssVisibility = options.cssVisibility;
             }
             this.frameIndex = options.frameIndex;
+            if (options.frameId) {
+                this.frameId = options.frameId;
+            }
             if (options.frameLabel) {
                 this.frameLabel = options.frameLabel;
             }
@@ -70,6 +89,7 @@
         cssVisibility: true,
         isAnimated: true,
         frameIndex: null,
+        frameId: null,
         frameLabel: '',
 
         initialize: function (name, url, extent, size, options) {
@@ -79,6 +99,9 @@
                 this.cssVisibility = options.cssVisibility;
             }
             this.frameIndex = options.frameIndex;
+            if (options.frameId) {
+                this.frameId = options.frameId;
+            }
             if (options.frameLabel) {
                 this.frameLabel = options.frameLabel;
             }
@@ -113,12 +136,100 @@
         }
     });
 
-    /* ******************************************************************** */
-    /* ******************************************************************** */
-    /* ******************************************************************** */
-    /* ******************************************************************** */
-    /* ******************************************************************** */
-    /* ******************************************************************** */
+    var OceanClickControl = OpenLayers.Class(OpenLayers.Control, {
+        defaultHandlerOptions: {
+            'single': true,
+            'double': false,
+            'pixelTolerance': 0,
+            'stopSingle': false,
+            'stopDouble': false
+        },
+
+        initialize: function (options) {
+            this.handlerOptions = OpenLayers.Util.extend({}, this.defaultHandlerOptions);
+            OpenLayers.Control.prototype.initialize.apply(this, arguments);
+            this.handler = new OpenLayers.Handler.Click(this, {'click': this.trigger}, this.handlerOptions);
+        },
+
+        trigger: function (e) {
+            var lonlat = map.getLonLatFromViewPortPx(e.xy);
+            var mapSize = map.getSize();
+            $.get('/ocean/ejclick/', {
+                identifiers: getSelectedIdentifiers().join(','),
+                lon: lonlat.lon,
+                lat: lonlat.lat,
+                srs: map.getProjection(),
+                bbox: map.getExtent().toBBOX(),
+                width: mapSize.w,
+                height: mapSize.h,
+                resolution: map.getResolution(),
+                x: e.xy.x,
+                y: e.xy.y
+            })
+            .done(function (data) {
+                // Abuse some existing lizard-map code here.
+                open_popup(false);
+                var allNames = [];
+                var identifiers = [];
+
+                // add currently selected date range to download url
+                var appendToUrl = '';
+                var view_state = get_view_state();
+                view_state = to_date_strings(view_state);
+                if (view_state !== undefined) {
+                    if (view_state.dt_start && view_state.dt_end) {
+                        appendToUrl = '&' + $.param({
+                            dt_start: view_state.dt_start,
+                            dt_end: view_state.dt_end
+                        });
+                    }
+                }
+
+                $.each(data, function () {
+                    $.each(this.names, function (index, value) {
+                        if ($.inArray(value, allNames) === -1) {
+                            allNames.push(value);
+                        }
+                    });
+                    var params = $.param({
+                        identifiers: this.identifiers.join(',')
+                    });
+                    var $graph = $('<div style="width: 100%; height: 300px;" class="dynamic-graph"></div>')
+                    .attr({
+                        'data-flot-graph-data-url': '/ocean/ejflot/?' + params,
+                        'data-image-graph-url': '/ocean/ejimg/?' + params
+                    });
+                    $('#movable-dialog-content').append($graph);
+                    var $downloadButton = $('<a class="btn">Download</a>')
+                    .attr({
+                        href: '/ocean/ejdownload/?' + params + appendToUrl
+                    });
+                    $('#movable-dialog-content').append($downloadButton);
+                });
+                $('#movable-dialog').dialog('option', 'title', allNames.join(', '));
+                reloadGraphs();
+            });
+        }
+    });
+
+    function setSubtract (a1, a2) {
+      return $.grep(a1, function (v) {
+          return $.inArray(v, a2) === -1;
+      });
+    }
+
+    function getPropertyForAll (property, array) {
+        return $.map(array, function (v) {
+            return v[property];
+        });
+    }
+
+    function getKeys (array) {
+        return $.map(array, function (v, k) {
+            return k;
+        });
+    }
+
     /* ******************************************************************** */
     /* ******************************************************************** */
     /* ******************************************************************** */
@@ -143,31 +254,62 @@
     var $currentFilenameLabel;
     var currentFilenameLabelHideTimeout = null;
 
+    function refreshAnimatedLayers (rastersets) {
+        var newFrames = {};
+        $.each(rastersets, function () {
+            var rasterset = this;
+            var frames = [];
+            $.each(rasterset.children, function (frameIndex) {
+                var child = this;
+                var frame = createFrame(rasterset.identifier, rasterset.name, child.identifier, child.name, frameIndex);
+                frames.push(frame);
+            });
+            newFrames[rasterset.identifier] = frames;
+        });
+
+        updateFrames(newFrames);
+    }
+
     function updateFrames (newFrames) {
         var wasRunning = stopIfRunning();
 
         // Iterate through all layers, and remove the ones that aren't
-        // present in the workspace anymore.
+        // present in the selected frames anymore.
 
-        // Find out what is missing, and what is new. We don't deal with updates.
-        var toAdd = [];
-        var toRemove = [];
-        $.each(frames, function (workspaceItemId, workspaceItemFrames) {
-            if (!(workspaceItemId in newFrames)) {
-                toRemove.push(workspaceItemId);
-            }
-        });
-        $.each(newFrames, function (workspaceItemId, workspaceItemFrames) {
-            if (!(workspaceItemId in frames)) {
-                toAdd.push(workspaceItemId);
+        // Find out what is missing, and what is new.
+        // Note: We don't deal with updates.
+        var toAdd = setSubtract(getKeys(newFrames), getKeys(frames));
+        var toRemove = setSubtract(getKeys(frames), getKeys(newFrames));
+        var toUpdate = [];
+        console.log('toAdd ', toAdd);
+        console.log('toRemove ', toRemove);
+        $.each(frames, function (frameSetId, frameSetFrames) {
+            if (frameSetId in newFrames) {
+                var currentFrameSetIdentifiers = getPropertyForAll('frameId', frameSetFrames);
+                var newFrameSetIdentifiers = getPropertyForAll('frameId', newFrames[frameSetId]);
+                console.log('currentFrameSetIdentifiers ', currentFrameSetIdentifiers);
+                console.log('newFrameSetIdentifiers ', newFrameSetIdentifiers);
+                var toAddInThisSet = setSubtract(newFrameSetIdentifiers, currentFrameSetIdentifiers);
+                var toRemoveInThisSet = setSubtract(currentFrameSetIdentifiers, newFrameSetIdentifiers);
+                if (toAddInThisSet.length > 0 || toRemoveInThisSet.length > 0) {
+                    console.log('toAddInThisSet ', toAddInThisSet);
+                    console.log('toRemoveInThisSet ', toRemoveInThisSet);
+                    toUpdate.push({
+                        frameSetId: frameSetId,
+                        toAdd: toAddInThisSet,
+                        toRemove: toRemoveInThisSet
+                    });
+                    toAdd.push(frameSetId);
+                    toRemove.push(frameSetId);
+                }
             }
         });
 
         // Remove all related layers from the map.
         $.each(toRemove, function () {
-            var workspaceItemId = this;
-            var workspaceItemFrames = frames[workspaceItemId];
-            $.each(workspaceItemFrames, function () {
+            var frameSetId = this;
+            var frameSetFrames = frames[frameSetId];
+            $.each(frameSetFrames, function () {
                 try {
                     map.removeLayer(this);
                 }
@@ -175,22 +317,23 @@
                     console.error('map.removeLayer error');
                 }
             });
-            delete frames[workspaceItemId];
+            delete frames[frameSetId];
         });
 
         // Add any new layers to the map.
         $.each(toAdd, function () {
-            var workspaceItemId = this;
-            var workspaceItemFrames = newFrames[workspaceItemId];
-            $.each(workspaceItemFrames, function () {
+            var frameSetId = this;
+            var frameSetFrames = newFrames[frameSetId];
+            $.each(frameSetFrames, function () {
                 try {
                     map.addLayer(this);
+                    this.setZIndex(RASTER_LAYER_ZINDEX);
                 }
                 catch (e) {
                     console.error('map.addLayer error');
                 }
             });
-            frames[workspaceItemId] = workspaceItemFrames;
+            frames[frameSetId] = frameSetFrames;
         });
 
         updateFrameCount();
@@ -224,9 +367,9 @@
     function updateFrameCount () {
         // calculate highest amount of frames
         frameCount = 0;
-        $.each(frames, function (workspaceItemId, workspaceItemFrames) {
-            if (workspaceItemFrames.length > frameCount) {
-                frameCount = workspaceItemFrames.length;
+        $.each(frames, function (frameSetId, frameSetFrames) {
+            if (frameSetFrames.length > frameCount) {
+                frameCount = frameSetFrames.length;
             }
         });
 
@@ -235,9 +378,9 @@
 
     function getFramesByIndex (frameIndex) {
         var result = [];
-        $.each(frames, function (workspaceItemId, workspaceItemFrames) {
-            if (frameIndex in workspaceItemFrames) {
-                result.push(workspaceItemFrames[frameIndex]);
+        $.each(frames, function (frameSetId, frameSetFrames) {
+            if (frameIndex in frameSetFrames) {
+                result.push(frameSetFrames[frameIndex]);
             }
         });
         return result;
@@ -245,8 +388,8 @@
 
     function getAllFramesFlat () {
         var result = [];
-        $.each(frames, function (workspaceItemId, workspaceItemFrames) {
-            $.each(workspaceItemFrames, function () {
+        $.each(frames, function (frameSetId, frameSetFrames) {
+            $.each(frameSetFrames, function () {
                 result.push(this);
             });
         });
@@ -305,19 +448,22 @@
        }
     }
 
-    function createFrame (workspaceItemId, workspaceItemName, workspaceItemWmsParams, workspaceItemOptions, workspaceItemUrl, workspaceItemIndex, filename, frameIndex) {
-        var name = workspaceItemName + '_' + workspaceItemId + '_' + frameIndex;
+    function createFrame (rastersetId, rastersetName, frameId, frameName, frameIndex) {
+        var name = rastersetName + ' ' + frameName;
 
-        var wmsUrl = workspaceItemUrl;
-        var wmsParams = $.extend({}, workspaceItemWmsParams);
-        wmsParams['tilesorigin'] = [map.maxExtent.left, map.maxExtent.bottom];
-        wmsParams['filename'] = filename;
-        var frameLabel = filename;
+        var wmsUrl = '/ocean/ejwms/';
+        var wmsParams = $.extend({}, {
+            tilesorigin: [map.maxExtent.left, map.maxExtent.bottom],
+            layers: frameId,
+            filterbytype: 'rasters'
+        });
+        var frameLabel = frameName;
         frameLabel = frameLabel.replace(/\.\w+$/g, '');
         frameLabel = frameLabel.replace(/_/g, ' ');
         frameLabel = frameLabel.replace(/\./g, ' ');
 
-        var options = $.extend({}, workspaceItemOptions, {
+        var options = $.extend({}, {
+            singleTile: true,
             opacity: 0.9,
             attribution: 'Powered by Lizard',
             isBaseLayer: false,
@@ -334,8 +480,9 @@
                     onLayerLoadingChange();
                 }
             },
-            projection: 'EPSG:900913',
+            projection: 'EPSG:3857',
             frameIndex: frameIndex,
+            frameId: frameId,
             frameLabel: frameLabel
         });
 
@@ -540,33 +687,7 @@
         $progressBar.find('.bar').css({width: pct});
     }
 
-    function refreshAnimatedLayers () {
-        initControls();
-
-        var newFrames = {};
-        $('#lizard-map-wms .lizard-map-wms-item[data-workspace-wms-needs-custom-handler="true"]').each(function () {
-            var $el = $(this);
-            var workspaceItemId = $el.data('workspace-wms-id');
-            var workspaceItemName = $el.data('workspace-wms-name');
-            var workspaceItemWmsParams = $el.data('workspace-wms-params');
-            var workspaceItemOptions = $el.data('workspace-wms-options');
-            var workspaceItemUrl = $el.data('workspace-wms-url');
-            var workspaceItemIndex = $el.data('workspace-wms-index');
-            var handlerData = $el.data('workspace-wms-custom-handler-data');
-
-            var workspaceItemFrames = [];
-            $.each(handlerData.filenames, function (frameIndex) {
-                var filename = this;
-                var frame = createFrame(workspaceItemId, workspaceItemName, workspaceItemWmsParams, workspaceItemOptions, workspaceItemUrl, workspaceItemIndex, filename, frameIndex);
-                workspaceItemFrames.push(frame);
-            });
-            newFrames[workspaceItemId] = workspaceItemFrames;
-        });
-
-        updateFrames(newFrames);
-    }
-
-    function initControls () {
+    function initAnimationControls () {
         if (!controlsInitialized) {
             initStartStopButton();
             initFrameSlider();
@@ -577,8 +698,118 @@
        }
     }
 
-    window.refreshAnimatedLayers = refreshAnimatedLayers;
+    /* ******************************************************************** */
+    /* ******************************************************************** */
+    /* ******************************************************************** */
+    /* ******************************************************************** */
+    /* ******************************************************************** */
+    /* ******************************************************************** */
 
-    // force i18n to english
-    moment.lang('en');
+    function getIdentifiers (nodes) {
+        var identifiers = [];
+        $.each(nodes, function () {
+            var node = this;
+            identifiers.push(node.data.identifier);
+        });
+        return identifiers;
+    }
+
+    // Note: has to run AFTER lizard_map's document.ready().
+    $(document).ready(function () {
+        // Force i18n to English.
+        moment.lang('en');
+
+        // Kill the default click handler.
+        // No way to reference the old control by ID...
+        var oldClickControl = map.getControlsByClass('OpenLayers.Control')[0];
+        oldClickControl.deactivate();
+        map.removeControl(oldClickControl);
+        // Add our own handler.
+        var newClickControl = new OceanClickControl();
+        map.addControl(newClickControl);
+        newClickControl.activate();
+
+        // Add a single OL layer for the locations.
+        var locationsLayer = new OpenLayers.Layer.WMS('locations', '/ocean/ejwms/',
+        {
+            layers: [],
+            format: 'image/png',
+            filterbytype: 'locations'
+        },
+        {
+            isBaseLayer: false,
+            singleTile: true,
+            displayInLayerSwitcher: false
+        });
+        map.addLayer(locationsLayer);
+        locationsLayer.setZIndex(LOCATIONS_LAYER_ZINDEX);
+
+        // Initialize rastersets animation.
+        initAnimationControls();
+        var refreshRastersetsTimeout = null;
+        var refreshRastersetsDeferred = null;
+        function getRastersetInfo (identifiers) {
+            if (refreshRastersetsDeferred !== null) {
+                refreshRastersetsDeferred.abort();
+            }
+            refreshRastersetsDeferred = $.get('/ocean/ejrastersetinfo/', {identifiers: identifiers.join(',')})
+            .done(function (data) {
+                var rastersetInfo = data;
+                refreshAnimatedLayers(rastersetInfo);
+            })
+            .fail(function () {
+                console.error('getRastersetInfo error');
+            })
+            .always(function () {
+                refreshRastersetsDeferred = null;
+            });
+        }
+        function refreshRastersets (identifiers) {
+            if (refreshRastersetsTimeout !== null) {
+                window.clearTimeout(refreshRastersetsTimeout);
+                refreshRastersetsTimeout = null;
+            }
+            refreshRastersetsTimeout = window.setTimeout(function () {
+                refreshRastersetsTimeout = null;
+                getRastersetInfo(identifiers);
+            }, 300);
+        }
+
+        // Initialize the tree.
+        $("#ocean-tree").fancytree({
+            source: treeData,
+            checkbox: true,
+            selectMode: 3,
+            debugLevel: 0,
+            click: function(e, data) {
+                // Toggle node when clicked on the title.
+                if (e && e.originalEvent && e.originalEvent.target) {
+                    var $target = $(e.originalEvent.target);
+                    if ($target.hasClass('fancytree-title')) {
+                        data.node.toggleSelected();
+                    }
+                }
+            },
+            select: function(event, data) {
+                var nodes = data.tree.getSelectedNodes(true);
+
+                var identifiers = getIdentifiers(nodes);
+                locationsLayer.mergeNewParams({
+                    layers: identifiers
+                });
+                // Need to do this each time after a mergeNewParams.
+                locationsLayer.setZIndex(LOCATIONS_LAYER_ZINDEX);
+                locationsLayer.redraw(true);
+
+                refreshRastersets(identifiers);
+            }
+        });
+    });
+
+    function getSelectedIdentifiers () {
+        var tree = $("#ocean-tree").data('fancytree').tree;
+        var nodes = tree.getSelectedNodes(true);
+        var identifiers = getIdentifiers(nodes);
+        return identifiers;
+    }
 })();
