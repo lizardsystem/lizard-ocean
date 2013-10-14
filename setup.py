@@ -16,6 +16,7 @@ install_requires = [
     'lizard-map',
     'lizard-ui >= 4.0b5',
     'netCDF4',
+    'recordtype',
     'pytz',
     ],
 
@@ -46,10 +47,6 @@ setup(name='lizard-ocean',
       extras_require={'test': tests_require},
       entry_points={
           'console_scripts': [
-          ],
-          'lizard_map.adapter_class': [
-              'adapter_ocean = lizard_ocean.layers:OceanPointAdapter',
-              'adapter_ocean_raster = lizard_ocean.layers:OceanRasterAdapter',
           ],
       },
   )

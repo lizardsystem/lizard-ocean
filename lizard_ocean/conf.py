@@ -14,11 +14,10 @@ _our_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 class OceanAppConf(AppConf):
-    # Use it like ``settings.OCEAN_RASTER_BASEDIR``.
+    # Use it like ``settings.OCEAN_BASEDIR``.
     
     # Default settings are our own test data dirs.
-    NETCDF_BASEDIR = os.path.join(_our_dir, 'samples', 'netcdf')
-    RASTER_BASEDIR = os.path.join(_our_dir, 'samples', 'raster')
+    BASEDIR = os.path.join(_our_dir, 'samples')
 
     class Meta:
         prefix = 'OCEAN'
