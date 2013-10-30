@@ -9,6 +9,7 @@ from __future__ import division
 import os
 import hashlib
 import logging
+import shutil
 from hashlib import sha1
 from collections import namedtuple
 import cPickle as pickle
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 Node = recordtype('Node', """
     path, identifier, name, children, parent,
-    is_rasterset, is_raster, is_netcdf,
+    is_rasterset, is_raster, is_rasterset_legend, is_netcdf, is_worldfile,
     is_parameter, parameter_id, parameter_name, parameter_unit,
     is_location, location_id, location_x, location_y, location_index
 """)
@@ -34,7 +35,7 @@ def make_node(path, name, parent_node):
     identifier = hashlib.md5(path).hexdigest()[:8]
     return Node(
         path, identifier, name, None, parent_node,
-        False, False, False,
+        False, False, False, False, False,
         False, None, None, None,
         False, None, None, None, None
     )
@@ -89,11 +90,13 @@ def get_data_tree(dir, level=0, parent_node=None):
     cache_key = '{}:{}'.format(dir, mtime)
     nodes = cache.get(cache_key)
 
-    if nodes is None:
+    if nodes is None or True:
         nodes = []
         for fn in sorted(os.listdir(dir)):
             path = os.path.join(dir, fn)
             bn, ext = os.path.splitext(fn)
+            ext = ext.lower()
+            bn_lower = bn.lower()
             name = bn.replace('_', ' ')
             node = make_node(path, name, parent_node)
             if os.path.isdir(path):
@@ -102,7 +105,12 @@ def get_data_tree(dir, level=0, parent_node=None):
                 if ext == '.png' and parent_node:
                     if not parent_node.is_rasterset:
                         parent_node.is_rasterset = True
-                    node.is_raster = True
+                    if 'legend' in bn_lower:
+                        node.is_rasterset_legend = True
+                    else:
+                        node.is_raster = True
+                elif ext == '.pngw':
+                    node.is_worldfile = True
                 elif ext == '.nc':
                     node.is_netcdf = True
                     node.children = get_netcdf_parameters_as_nodes(path, node)
@@ -113,6 +121,24 @@ def get_data_tree(dir, level=0, parent_node=None):
 
             if node:
                 nodes.append(node)
+
+        def fixup_missing_worldfile_nodes():
+            for rasterset in filter_by_property(nodes, 'is_rasterset'):
+                rasters = filter_by_property(rasterset.children, 'is_raster')
+                worldfiles = filter_by_property(rasterset.children, 'is_worldfile')
+                if len(worldfiles) == 1 and len(rasters) != 1:
+                    pngw_src = worldfiles[0].path
+                    for raster in rasters:
+                        pngw_dst = os.path.splitext(raster.path)[0] + '.pngw'
+                        if not os.path.exists(pngw_dst):
+                            logger.info('creating a png worldfile %s', pngw_dst)
+                            try:
+                                shutil.copy(pngw_src, pngw_dst)
+                            except:
+                                logger.exception('error while copying png worldfile')
+                                pass
+        fixup_missing_worldfile_nodes()
+
         logger.debug('get_data_tree: cache MISS %s %s %s', dir, mtime, len(pickle.dumps(nodes)))
         cache.set(cache_key, nodes, 300)
     else:
@@ -146,6 +172,8 @@ def to_fancytree(nodes):
         }
         if folder:
             fancy_node['children'] = to_fancytree(node.children)
+
+        do_add_node = True
         if node.is_raster:
             fancy_node['iconclass'] = 'ui-icon ui-icon-document'
         elif node.is_rasterset:
@@ -156,16 +184,25 @@ def to_fancytree(nodes):
             fancy_node['iconclass'] = 'ui-icon ui-icon-image'
         elif node.is_location:
             fancy_node['iconclass'] = 'ui-icon ui-icon-pin-s'
-        result.append(fancy_node)
+        elif node.is_worldfile:
+            do_add_node = False
+        elif node.is_rasterset_legend:
+            do_add_node = False
+        else:
+            # Node is probably the root node.
+            pass
+
+        if do_add_node:
+            result.append(fancy_node)
     return result
 
 def filter_by_identifier(node_dict, nodes, identifiers):
-    '''Filters the tree by given identifiers.'''
+    '''Filters the tree by given identifiers. Does not modify passed list.'''
     nodes = [node_dict[identifier] for identifier in identifiers if identifier in node_dict]
     return nodes
 
 def filter_by_property(nodes, property):
-    '''Find out nodes in the passed set of nodes by property, recursively.'''
+    '''Find out nodes in the passed set of nodes by property, recursively. Does not modify passed list.'''
     result = []
     for node in nodes:
         if getattr(node, property):
@@ -179,7 +216,7 @@ class Tree(object):
         if dir is None:
             dir = settings.OCEAN_BASEDIR
 
-        self.tree = get_data_tree(settings.OCEAN_BASEDIR)
+        self.tree = get_data_tree(dir)
         self.node_dict = get_node_dict(self.tree)
 
     def filter_by_identifier(self, identifiers):

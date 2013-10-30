@@ -17,6 +17,7 @@ from django.contrib.gis.geos import Point
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
 from django.http import Http404
+from django.views.static import serve as django_serve
 
 import mapnik
 from dateutil.parser import parse as date_parse
@@ -103,6 +104,7 @@ class RastersetInfoView(View):
                         'identifier': raster.identifier,
                     }
                     for raster in rasterset.children
+                    if raster.is_raster
                 ],
             }
             rasterset_info.append(info)
@@ -254,6 +256,40 @@ class DownloadView(View):
                     rowdata[base + 1] = item['values'][i][1]
                     rowdata[base + 2] = item['unit']
             writer.writerow(rowdata)
+        return response
+
+class LegendView(View):
+    @method_decorator(never_cache)
+    def get(self, request):
+        identifiers = request.GET.get('identifiers', '')
+        identifiers = [identifier.strip() for identifier in identifiers.split(',')]
+
+        tree = ocean_data.Tree()
+        legends = tree.filter_by_identifier(identifiers).get()
+        document_root = os.path.dirname(legends[0].path)
+        filename = os.path.basename(legends[0].path)
+        return django_serve(request, filename, document_root)
+
+class LegendInfoView(View):
+    @method_decorator(never_cache)
+    def get(self, request):
+        identifiers = request.GET.get('identifiers', '')
+        identifiers = [identifier.strip() for identifier in identifiers.split(',')]
+
+        legend_info = []
+
+        tree = ocean_data.Tree()
+        selected_nodes = tree.filter_by_identifier(identifiers)
+        legends = selected_nodes.filter_by_property('is_rasterset_legend').get()
+
+        for legend in legends:
+            info = {
+                'name': legend.name,
+                'identifier': legend.identifier,
+            }
+            legend_info.append(info)
+
+        response = HttpResponse(json.dumps(legend_info), content_type='application/json')
         return response
 
 class MainView(MapView):
