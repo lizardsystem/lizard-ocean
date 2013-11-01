@@ -167,7 +167,7 @@ def get_data_tree(directory, level=0, parent_node=None):
         # Grab this moment to fix the worldfiles.
         fixup_missing_worldfile_nodes(nodes)
 
-        logger.debug('get_data_tree: cache MISS %s %s %s', directory, mtime, len(pickle.dumps(nodes)))
+        logger.debug('get_data_tree: cache MISS %s %s', directory, mtime)
         cache.set(cache_key, nodes, 300)
     else:
         logger.debug('get_data_tree: cache hit')
