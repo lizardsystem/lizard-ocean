@@ -775,6 +775,49 @@
             }, 300);
         }
 
+        var refreshLegendsTimeout = null;
+        var refreshLegendsDeferred = null;
+        function getLegendInfo (identifiers) {
+            if (refreshLegendsDeferred !== null) {
+                refreshLegendsDeferred.abort();
+            }
+            refreshLegendsDeferred = $.get('/ocean/ejlegendinfo/', {identifiers: identifiers.join(',')})
+            .done(function (data) {
+                var legendInfo = data;
+                var $rightBar = $('#rightbar');
+                var $oceanLegend = $rightBar.find('#ocean-legend');
+                if ($oceanLegend.length === 0) {
+                    $oceanLegend = $('<div id="ocean-legend"></div>');
+                    $rightBar.append($oceanLegend);
+                }
+                $oceanLegend.empty();
+                $.each(legendInfo, function () {
+                    $('<h3>')
+                    .text(this.name)
+                    .appendTo($oceanLegend);
+                    $('<img>')
+                    .attr('src', '/ocean/ejlegend/?identifiers=' + this.identifier)
+                    .appendTo($oceanLegend);
+                });
+            })
+            .fail(function () {
+                console.error('getLegendInfo error');
+            })
+            .always(function () {
+                refreshLegendsDeferred = null;
+            });
+        }
+        function refreshLegends (identifiers) {
+            if (refreshLegendsTimeout !== null) {
+                window.clearTimeout(refreshLegendsTimeout);
+                refreshLegendsTimeout = null;
+            }
+            refreshLegendsTimeout = window.setTimeout(function () {
+                refreshLegendsTimeout = null;
+                getLegendInfo(identifiers);
+            }, 300);
+        }
+
         // Initialize the tree.
         $("#ocean-tree").fancytree({
             source: treeData,
@@ -802,6 +845,7 @@
                 locationsLayer.redraw(true);
 
                 refreshRastersets(identifiers);
+                refreshLegends(identifiers);
             }
         });
     });

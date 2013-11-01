@@ -129,12 +129,25 @@ class FilteredOceanAdapter(object):
         output_filename_abs = os.path.join(
             settings.MEDIA_ROOT, 'generated_icons', output_filename)
         # use filename in mapnik pointsymbolizer
-        point_looks = mapnik.PointSymbolizer(*get_pointsymbolizer_args(output_filename_abs))
-        point_looks.allow_overlap = True
+        point_symbolizer = mapnik.PointSymbolizer(*get_pointsymbolizer_args(output_filename_abs))
+        point_symbolizer.allow_overlap = True
+
+        text_symbolizer = mapnik.TextSymbolizer(mapnik.Expression('[Name]'), 'DejaVu Sans Book', 11, mapnik.Color('black'))
+        text_symbolizer.displacement = (8, -8)
+        text_symbolizer.vertical_alignment = mapnik.vertical_alignment.TOP
+        text_symbolizer.horizontal_alignment = mapnik.horizontal_alignment.RIGHT
+        text_symbolizer.halo_fill = mapnik.Color('white')
+        text_symbolizer.halo_radius = 1
+        text_symbolizer.allow_overlap = True
+        text_symbolizer.avoid_edges = False
+
         layout_rule = mapnik.Rule()
-        layout_rule.symbols.append(point_looks)
+        layout_rule.symbols.append(point_symbolizer)
+        layout_rule.symbols.append(text_symbolizer)
+
         point_style = mapnik.Style()
         point_style.rules.append(layout_rule)
+
         return point_style
 
     def _get_raster_style(self):
