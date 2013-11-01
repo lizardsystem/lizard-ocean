@@ -118,7 +118,7 @@ def fixup_missing_worldfile_nodes(nodes):
                         logger.exception('error while copying png worldfile')
                         pass
 
-def get_data_tree(dir, level=0, parent_node=None):
+def get_data_tree(directory, level=0, parent_node=None):
     '''
     Crawl a nested directory structure and search for lizard-ocean compatible
     data files (NetCDF, PNG). Returns a nested list representation of it.
