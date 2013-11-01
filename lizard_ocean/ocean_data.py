@@ -1,28 +1,38 @@
-# (c) Nelen & Schuurmans.  GPL licensed, see LICENSE.rst.
 # -*- coding: utf-8 -*-
 
+# Futures
 from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import division
 
+# Python standard library
 import os
 import hashlib
 import logging
 import shutil
 from hashlib import sha1
 from collections import namedtuple
-import cPickle as pickle
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 
-from recordtype import recordtype
+# Django
 from django.conf import settings
 from django.core.cache import cache
 
+# Third party modules
+from recordtype import recordtype
+
+# Our own module
 from lizard_ocean import netcdf
 from lizard_ocean import raster
 
 logger = logging.getLogger(__name__)
 
+# Define a class we use to store a tree representing the datasets available
+# on the disk. We use recordtype objects, which are more efficient to serialize.
 Node = recordtype('Node', """
     path, identifier, name, children, parent,
     is_rasterset, is_raster, is_rasterset_legend, is_netcdf, is_worldfile,
@@ -32,6 +42,7 @@ Node = recordtype('Node', """
 
 def make_node(path, name, parent_node):
     '''Return a skeleton node instance for use in the data tree.'''
+    # Just store the first 8 characters of the hash, for efficiency.
     identifier = hashlib.md5(path).hexdigest()[:8]
     return Node(
         path, identifier, name, None, parent_node,
@@ -41,30 +52,38 @@ def make_node(path, name, parent_node):
     )
 
 def get_netcdf_parameters_as_nodes(netcdf_path, parent_node):
-    '''Read parameters from a NetCDF file and return them as data tree nodes.'''
+    '''Read parameters and locations from a NetCDF file, and return them as data tree nodes.'''
     nodes = []
     netcdf_file = netcdf.NetcdfFile(netcdf_path)
     stations = netcdf_file.stations()
     for parameter in netcdf_file.parameters():
+        # Make up a unique path for the parameter.
         path = '{}/{}'.format(netcdf_path, parameter['id'])
+        # Prettify parameter name.
         parameter_name = parameter['name'].replace('_', ' ')
         node = make_node(path, parameter_name, parent_node)
 
         children = []
-        for station in stations:
-            child_path = '{}/{}/{}'.format(path, parameter['id'], station['id'])
-            station_name = station['name'].lstrip('_')
-            child_node = make_node(child_path, station_name, node)
+        # Add all locations under each parameter. This isn't very efficient when
+        # all locations have data for all parameters.
+        for location in locations:
+            # Make up a unique path for the parameter and location combination.
+            child_path = '{}/{}/{}'.format(path, parameter['id'], location['id'])
+            # Prettify location name.
+            location_name = location['name'].lstrip('_')
+            # Store location data in the node.
+            child_node = make_node(child_path, location_name, node)
             child_node.is_location = True
-            child_node.location_id = station['id']
-            child_node.location_x = station['x']
-            child_node.location_y = station['y']
-            child_node.location_index = station['index']
+            child_node.location_id = location['id']
+            child_node.location_x = location['x']
+            child_node.location_y = location['y']
+            child_node.location_index = location['index']
             children.append(child_node)
 
-        # Sort by station name.
+        # Sort by location name.
         children.sort(key=lambda item: item.name)
 
+        # Store parameter data in the node.
         node.is_parameter = True
         node.parameter_id = parameter['id']
         node.parameter_name = parameter_name
@@ -78,28 +97,51 @@ def get_netcdf_parameters_as_nodes(netcdf_path, parent_node):
 
     return nodes
 
+def fixup_missing_worldfile_nodes(nodes):
+    '''
+    GDAL wants a matching worldfile (.pngw) for each georeferenced raster (.png).
+    However, the data is supplied by Deltares with only a single worldfile per directory.
+    In this method, we clone this worldfile to match the filename of each raster.
+    '''
+    for rasterset in filter_by_property(nodes, 'is_rasterset'):
+        rasters = filter_by_property(rasterset.children, 'is_raster')
+        worldfiles = filter_by_property(rasterset.children, 'is_worldfile')
+        if len(worldfiles) == 1 and len(rasters) != 1:
+            pngw_src = worldfiles[0].path
+            for raster in rasters:
+                pngw_dst = os.path.splitext(raster.path)[0] + '.pngw'
+                if not os.path.exists(pngw_dst):
+                    logger.info('creating a png worldfile %s', pngw_dst)
+                    try:
+                        shutil.copy(pngw_src, pngw_dst)
+                    except:
+                        logger.exception('error while copying png worldfile')
+                        pass
+
 def get_data_tree(dir, level=0, parent_node=None):
     '''
     Crawl a nested directory structure and search for lizard-ocean compatible
     data files (NetCDF, PNG). Returns a nested list representation of it.
     '''
     if level > 20:
-        raise Exception('Too much recursion in "{}"'.format(dir))
+        raise Exception('Too much recursion in "{}"'.format(directory))
 
-    mtime = os.path.getmtime(dir)
-    cache_key = '{}:{}'.format(dir, mtime)
+    mtime = os.path.getmtime(directory)
+    cache_key = '{}:{}'.format(directory, mtime)
     nodes = cache.get(cache_key)
 
-    if nodes is None or True:
+    if nodes is None:
         nodes = []
-        for fn in sorted(os.listdir(dir)):
-            path = os.path.join(dir, fn)
+        for fn in sorted(os.listdir(directory)):
+            path = os.path.join(directory, fn)
             bn, ext = os.path.splitext(fn)
             ext = ext.lower()
             bn_lower = bn.lower()
+            # Prettify file name.
             name = bn.replace('_', ' ')
             node = make_node(path, name, parent_node)
             if os.path.isdir(path):
+                # Recurse through subdirectories.
                 node.children = get_data_tree(path, level + 1, node)
             elif os.path.isfile(path):
                 if ext == '.png' and parent_node:
@@ -122,24 +164,10 @@ def get_data_tree(dir, level=0, parent_node=None):
             if node:
                 nodes.append(node)
 
-        def fixup_missing_worldfile_nodes():
-            for rasterset in filter_by_property(nodes, 'is_rasterset'):
-                rasters = filter_by_property(rasterset.children, 'is_raster')
-                worldfiles = filter_by_property(rasterset.children, 'is_worldfile')
-                if len(worldfiles) == 1 and len(rasters) != 1:
-                    pngw_src = worldfiles[0].path
-                    for raster in rasters:
-                        pngw_dst = os.path.splitext(raster.path)[0] + '.pngw'
-                        if not os.path.exists(pngw_dst):
-                            logger.info('creating a png worldfile %s', pngw_dst)
-                            try:
-                                shutil.copy(pngw_src, pngw_dst)
-                            except:
-                                logger.exception('error while copying png worldfile')
-                                pass
-        fixup_missing_worldfile_nodes()
+        # Grab this moment to fix the worldfiles.
+        fixup_missing_worldfile_nodes(nodes)
 
-        logger.debug('get_data_tree: cache MISS %s %s %s', dir, mtime, len(pickle.dumps(nodes)))
+        logger.debug('get_data_tree: cache MISS %s %s %s', directory, mtime, len(pickle.dumps(nodes)))
         cache.set(cache_key, nodes, 300)
     else:
         logger.debug('get_data_tree: cache hit')
@@ -156,12 +184,15 @@ def flatten_nodes(nodes):
     return result
 
 def get_node_dict(nodes):
-    '''Build a dict of all tree nodes, using their identifier as a key.'''
+    '''Build a dict of tree nodes, using their identifier as a key.'''
     nodes_flat = flatten_nodes(nodes)
     return dict([(node.identifier, node) for node in nodes_flat])
 
 def to_fancytree(nodes):
-    '''Convert an Ocean data tree to a Fancytree compatible format.'''
+    '''
+    Convert an Ocean data tree to a jQuery Fancytree compatible format.
+    You can serialize this to JSON and serve it to Fancytree.
+    '''
     result = []
     for node in nodes:
         folder = node.children is not None
@@ -171,6 +202,7 @@ def to_fancytree(nodes):
             'folder': folder,
         }
         if folder:
+            # Recurse
             fancy_node['children'] = to_fancytree(node.children)
 
         do_add_node = True
@@ -212,11 +244,12 @@ def filter_by_property(nodes, property):
     return result
 
 class Tree(object):
-    def __init__(self, dir=None):
-        if dir is None:
-            dir = settings.OCEAN_BASEDIR
+    '''Represents the tree of data files on the disk.'''
+    def __init__(self, directory=None):
+        if directory is None:
+            directory = settings.OCEAN_BASEDIR
 
-        self.tree = get_data_tree(dir)
+        self.tree = get_data_tree(directory)
         self.node_dict = get_node_dict(self.tree)
 
     def filter_by_identifier(self, identifiers):
@@ -229,15 +262,19 @@ class Tree(object):
         return self.tree
 
 class NodeList(object):
+    '''
+    Represents a subset of the data tree, like a Django QuerySet.
+    TODO: might be able to merge this class with Tree.
+    '''
     def __init__(self, tree, nodes):
         self.tree = tree
         self.nodes = nodes
 
     def filter_by_identifier(self, identifiers):
-        return NodeList(self.tree, filter_by_identifier(self.tree.node_dict, self.nodes, identifiers))
+        return NodeList(self.tree, filter_by_identifier(self.tree.node_dict, self.nodes[:], identifiers))
 
     def filter_by_property(self, property):
-        return NodeList(self.tree, filter_by_property(self.nodes, property))
+        return NodeList(self.tree, filter_by_property(self.nodes[:], property))
 
     def get(self):
         return self.nodes
