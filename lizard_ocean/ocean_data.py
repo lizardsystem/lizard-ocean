@@ -55,7 +55,7 @@ def get_netcdf_parameters_as_nodes(netcdf_path, parent_node):
     '''Read parameters and locations from a NetCDF file, and return them as data tree nodes.'''
     nodes = []
     netcdf_file = netcdf.NetcdfFile(netcdf_path)
-    stations = netcdf_file.stations()
+    locations = netcdf_file.stations()
     for parameter in netcdf_file.parameters():
         # Make up a unique path for the parameter.
         path = '{}/{}'.format(netcdf_path, parameter['id'])
